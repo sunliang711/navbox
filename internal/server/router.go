@@ -17,7 +17,7 @@ import (
 	"navbox/internal/web"
 )
 
-func NewRouter(cfg config.Config, logger zerolog.Logger, healthHandler *handler.HealthHandler, authHandler *handler.AuthHandler, iconHandler *handler.IconHandler, siteHandler *handler.SiteHandler, tagHandler *handler.TagHandler, authService service.AuthService, assets web.Assets) *gin.Engine {
+func NewRouter(cfg config.Config, logger zerolog.Logger, healthHandler *handler.HealthHandler, authHandler *handler.AuthHandler, iconHandler *handler.IconHandler, importExportHandler *handler.ImportExportHandler, siteHandler *handler.SiteHandler, tagHandler *handler.TagHandler, authService service.AuthService, assets web.Assets) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
@@ -31,6 +31,7 @@ func NewRouter(cfg config.Config, logger zerolog.Logger, healthHandler *handler.
 
 	admin := api.Group("/admin", middleware.AdminSession(cfg, authService))
 	iconHandler.RegisterAdminRoutes(admin)
+	importExportHandler.RegisterAdminRoutes(admin)
 	siteHandler.RegisterAdminRoutes(admin)
 	tagHandler.RegisterAdminRoutes(admin)
 

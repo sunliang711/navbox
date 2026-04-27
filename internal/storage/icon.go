@@ -144,6 +144,21 @@ func (s *IconStore) Dir() string {
 	return s.dir
 }
 
+func (s *IconStore) MaxBytes() int64 {
+	return s.maxBytes
+}
+
+func (s *IconStore) Path(fileName string) (string, error) {
+	if fileName == "" || fileName != filepath.Base(fileName) {
+		return "", ErrInvalidIcon
+	}
+	return filepath.Join(s.dir, fileName), nil
+}
+
+func AllowedIconExtension(mimeType string) (string, bool) {
+	return allowedIconExtension(mimeType)
+}
+
 func allowedIconExtension(mimeType string) (string, bool) {
 	switch strings.ToLower(mimeType) {
 	case "image/png":
