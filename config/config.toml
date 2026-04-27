@@ -9,6 +9,14 @@ shutdown_timeout = "10s"
 [log]
 level = "info"
 
+[database]
+dsn = "host=localhost user=navbox password=navbox dbname=navbox port=5432 sslmode=disable TimeZone=UTC"
+max_open_conns = 20
+max_idle_conns = 5
+conn_max_lifetime = "1h"
+conn_max_idle_time = "30m"
+connect_timeout = "5s"
+
 [upload]
 dir = "./data/uploads"
 max_bytes = 1048576
