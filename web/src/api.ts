@@ -148,6 +148,10 @@ export async function uploadIcon(file: File): Promise<IconResp> {
   });
 }
 
+export function fetchWebsiteIcon(url: string): Promise<IconResp> {
+  return jsonRequest<IconResp>('/api/v1/admin/icons/fetch', 'POST', { url });
+}
+
 export async function exportConfig(req: { site_ids?: string[]; tag_ids?: string[] }): Promise<ExportFile> {
   const response = await fetch('/api/v1/admin/export', {
     method: 'POST',

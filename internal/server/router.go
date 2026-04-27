@@ -70,6 +70,18 @@ func registerWebRoutes(router *gin.Engine, assets web.Assets) {
 	router.GET("/assets/*filepath", func(c *gin.Context) {
 		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
+	for _, assetPath := range []string{"/favicon.svg", "/icon.svg"} {
+		path := assetPath
+		router.GET(path, func(c *gin.Context) {
+			c.Request.URL.Path = path
+			fileServer.ServeHTTP(c.Writer, c.Request)
+		})
+	}
+	router.GET("/site.webmanifest", func(c *gin.Context) {
+		c.Header("Content-Type", "application/manifest+json")
+		c.Request.URL.Path = "/site.webmanifest"
+		fileServer.ServeHTTP(c.Writer, c.Request)
+	})
 	router.NoRoute(func(c *gin.Context) {
 		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
 			response.Error(c, http.StatusNotFound, response.CodeNotFound, "not found")

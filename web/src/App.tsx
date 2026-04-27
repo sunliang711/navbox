@@ -1,16 +1,7 @@
 import {
-  Clock,
-  Copy,
-  ExternalLink,
-  Globe2,
   Heart,
-  Layers3,
-  Link2,
   Loader2,
-  Monitor,
-  Network,
   Search,
-  Tag as TagIcon,
   X
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -20,14 +11,7 @@ import { loadRecentSites, saveRecentSite } from './recent';
 import './styles.css';
 import type { RecentSite, Site, Tag } from './types';
 
-type ViewMode = 'all' | 'favorite' | 'recent' | 'uncategorized';
-
-const viewItems: Array<{ id: ViewMode; label: string; icon: typeof Globe2 }> = [
-  { id: 'all', label: '全部', icon: Globe2 },
-  { id: 'favorite', label: '常用', icon: Heart },
-  { id: 'recent', label: '最近', icon: Clock },
-  { id: 'uncategorized', label: '未分类', icon: Layers3 }
-];
+type ViewMode = 'all' | 'favorite' | 'recent';
 
 export function App() {
   if (window.location.pathname.startsWith('/admin')) {
@@ -46,7 +30,6 @@ function VisitorApp() {
   const [view, setView] = useState<ViewMode>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -120,17 +103,8 @@ function VisitorApp() {
     };
   }, [ready, search, selectedTagIds, view]);
 
-  useEffect(() => {
-    if (!notice) {
-      return;
-    }
-    const timer = window.setTimeout(() => setNotice(''), 1800);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
-
   const selectedTagSet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
   const displaySites = view === 'recent' ? filterRecentSites(recentSites, search) : sites;
-  const activeFilterCount = selectedTagIds.length + (search.trim() ? 1 : 0) + (view !== 'all' ? 1 : 0);
 
   function toggleTag(tagId: string) {
     setView('all');
@@ -146,12 +120,6 @@ function VisitorApp() {
     }
   }
 
-  function clearFilters() {
-    setSearch('');
-    setSelectedTagIds([]);
-    setView('all');
-  }
-
   function openSite(site: Site, url: string) {
     if (!url) {
       return;
@@ -164,68 +132,8 @@ function VisitorApp() {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  async function copyURL(site: Site, url: string) {
-    if (!url) {
-      return;
-    }
-    await copyText(url);
-    setRecentSites(saveRecentSite(site));
-    setNotice('链接已复制');
-  }
-
   return (
     <main className="app-shell">
-      <aside className="sidebar" aria-label="导航筛选">
-        <div className="brand">
-          <div className="brand-icon">
-            <Monitor size={24} aria-hidden="true" />
-          </div>
-          <div>
-            <h1>Navbox</h1>
-            <span>{tags.length} Tags</span>
-          </div>
-        </div>
-
-        <nav className="view-nav" aria-label="系统视图">
-          {viewItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                className={view === item.id ? 'nav-button active' : 'nav-button'}
-                type="button"
-                key={item.id}
-                onClick={() => switchView(item.id)}
-              >
-                <Icon size={17} aria-hidden="true" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <section className="tag-panel" aria-label="Tag 列表">
-          <div className="panel-title">
-            <TagIcon size={16} aria-hidden="true" />
-            <span>Tags</span>
-          </div>
-          <div className="tag-list">
-            {tags.map((tag) => (
-              <button
-                className={selectedTagSet.has(tag.id) ? 'tag-button selected' : 'tag-button'}
-                type="button"
-                key={tag.id}
-                onClick={() => toggleTag(tag.id)}
-                style={{ '--tag-color': normalizeColor(tag.color) } as React.CSSProperties}
-              >
-                <span className="tag-dot" aria-hidden="true" />
-                <span className="tag-name">{tag.name}</span>
-                <span className="tag-count">{tag.site_count}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      </aside>
-
       <section className="content">
         <header className="toolbar">
           <div className="search-box">
@@ -234,7 +142,7 @@ function VisitorApp() {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索网站、描述、URL 或 Tag"
+              placeholder="按回车键聚焦并搜索应用"
               aria-label="搜索网站"
             />
             {search && (
@@ -244,17 +152,44 @@ function VisitorApp() {
             )}
           </div>
 
-          <div className="toolbar-summary">
-            <span>{displaySites.length} 个网站</span>
-            {activeFilterCount > 0 && (
-              <button className="text-button" type="button" onClick={clearFilters}>
-                清除筛选
+          <nav className="pill-nav" aria-label="Tag 筛选">
+            <button
+              className={view === 'all' && selectedTagIds.length === 0 ? 'filter-pill active' : 'filter-pill'}
+              type="button"
+              onClick={() => {
+                setSelectedTagIds([]);
+                setView('all');
+              }}
+            >
+              全部工具
+            </button>
+            {tags.map((tag) => (
+              <button
+                className={selectedTagSet.has(tag.id) ? 'filter-pill active' : 'filter-pill'}
+                type="button"
+                key={tag.id}
+                onClick={() => toggleTag(tag.id)}
+              >
+                {tag.name}
               </button>
-            )}
-          </div>
+            ))}
+            <button
+              className={view === 'favorite' ? 'filter-pill active' : 'filter-pill'}
+              type="button"
+              onClick={() => switchView('favorite')}
+            >
+              常用工具
+            </button>
+            <button
+              className={view === 'recent' ? 'filter-pill active' : 'filter-pill'}
+              type="button"
+              onClick={() => switchView('recent')}
+            >
+              最近访问
+            </button>
+            <a className="filter-pill admin-pill" href="/admin">管理后台</a>
+          </nav>
         </header>
-
-        {notice && <div className="toast">{notice}</div>}
 
         <section className="site-area" aria-live="polite">
           {loading && (
@@ -279,7 +214,7 @@ function VisitorApp() {
           {!loading && !error && displaySites.length > 0 && (
             <div className="site-grid">
               {displaySites.map((site) => (
-                <SiteCard key={site.id} site={site} onOpen={openSite} onCopy={copyURL} />
+                <SiteCard key={site.id} site={site} onOpen={openSite} />
               ))}
             </div>
           )}
@@ -291,60 +226,27 @@ function VisitorApp() {
 
 function SiteCard({
   site,
-  onOpen,
-  onCopy
+  onOpen
 }: {
   site: Site;
   onOpen: (site: Site, url: string) => void;
-  onCopy: (site: Site, url: string) => Promise<void>;
 }) {
-  const visibleTags = site.tags.slice(0, 2);
-  const moreTags = Math.max(site.tags.length - visibleTags.length, 0);
-  const background = normalizeColor(site.background_color);
+  const primaryTag = site.tags[0];
 
   return (
-    <article className="site-card" style={{ '--card-accent': background } as React.CSSProperties}>
+    <button className="site-card" type="button" onClick={() => onOpen(site, site.default_url)}>
       <div className="site-main">
         <SiteIcon site={site} />
         <div className="site-copy">
           <div className="site-title-row">
             <h2>{site.title}</h2>
+            {primaryTag && <span className="site-tag">{primaryTag.name}</span>}
             {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label="常用" />}
           </div>
           {!site.only_name && site.description && <p>{site.description}</p>}
-          <div className="site-url">
-            <Link2 size={14} aria-hidden="true" />
-            <span>{site.default_url}</span>
-          </div>
         </div>
       </div>
-
-      <div className="site-tags" title={site.tags.map((tag) => tag.name).join(', ')}>
-        {visibleTags.map((tag) => (
-          <span className="site-tag" key={tag.id}>
-            {tag.name}
-          </span>
-        ))}
-        {moreTags > 0 && <span className="site-tag">+{moreTags}</span>}
-      </div>
-
-      <div className="site-actions">
-        <button type="button" onClick={() => onOpen(site, site.default_url)} title="打开默认 URL">
-          <ExternalLink size={17} aria-hidden="true" />
-          <span>打开</span>
-        </button>
-        {site.lan_url && (
-          <button type="button" onClick={() => onOpen(site, site.lan_url)} title="打开 LAN URL">
-            <Network size={17} aria-hidden="true" />
-            <span>LAN</span>
-          </button>
-        )}
-        <button type="button" onClick={() => onCopy(site, site.default_url)} title="复制默认 URL">
-          <Copy size={17} aria-hidden="true" />
-          <span>复制</span>
-        </button>
-      </div>
-    </article>
+    </button>
   );
 }
 
@@ -373,29 +275,4 @@ function filterRecentSites(sites: RecentSite[], search: string): RecentSite[] {
       .toLowerCase()
       .includes(keyword);
   });
-}
-
-function normalizeColor(value: string): string {
-  const color = value.trim();
-  if (!color) {
-    return '#2f7d6d';
-  }
-  return color;
-}
-
-async function copyText(value: string): Promise<void> {
-  if (navigator.clipboard) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const input = document.createElement('textarea');
-  input.value = value;
-  input.setAttribute('readonly', 'true');
-  input.style.position = 'fixed';
-  input.style.left = '-9999px';
-  document.body.appendChild(input);
-  input.select();
-  document.execCommand('copy');
-  document.body.removeChild(input);
 }

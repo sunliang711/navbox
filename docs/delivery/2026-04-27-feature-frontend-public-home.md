@@ -61,10 +61,10 @@ go test ./...
 go build ./...
 docker compose build navbox
 docker compose up -d postgres navbox
-docker compose exec -T navbox wget -qO- http://127.0.0.1:8080/api/v1/health
-docker compose exec -T navbox wget -S -qO- http://127.0.0.1:8080/
-docker compose exec -T navbox wget -qO- http://127.0.0.1:8080/api/v1/tags
-docker compose exec -T navbox wget -qO- 'http://127.0.0.1:8080/api/v1/sites?view=default'
+docker compose exec -T navbox wget -qO- http://127.0.0.1:8037/api/v1/health
+docker compose exec -T navbox wget -S -qO- http://127.0.0.1:8037/
+docker compose exec -T navbox wget -qO- http://127.0.0.1:8037/api/v1/tags
+docker compose exec -T navbox wget -qO- 'http://127.0.0.1:8037/api/v1/sites?view=default'
 ```
 
 验证结果：

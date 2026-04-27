@@ -2,7 +2,7 @@
 name = "navbox"
 
 [http]
-addr = ":8080"
+addr = ":8037"
 read_header_timeout = "5s"
 shutdown_timeout = "10s"
 

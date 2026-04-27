@@ -30,9 +30,9 @@ Admin initial password generated
 
 访问地址：
 
-- 游客首页：`http://localhost:8080/`
-- admin 管理：`http://localhost:8080/admin`
-- 健康检查：`http://localhost:8080/api/v1/health`
+- 游客首页：`http://localhost:8037/`
+- admin 管理：`http://localhost:8037/admin`
+- 健康检查：`http://localhost:8037/api/v1/health`
 
 ## 本地开发
 
@@ -64,7 +64,7 @@ docker compose build navbox
 
 | 环境变量 | 说明 | 示例 |
 | --- | --- | --- |
-| `NAVBOX_HTTP_ADDR` | HTTP 监听地址 | `:8080` |
+| `NAVBOX_HTTP_ADDR` | HTTP 监听地址 | `:8037` |
 | `NAVBOX_DATABASE_DSN` | PostgreSQL DSN | `host=postgres user=navbox password=navbox dbname=navbox port=5432 sslmode=disable TimeZone=UTC` |
 | `NAVBOX_UPLOAD_DIR` | icon 上传目录 | `/app/data/uploads` |
 | `NAVBOX_AUTH_SESSION_TTL` | admin Session 有效期 | `24h` |
@@ -95,7 +95,7 @@ npm --prefix web run build
 go build ./...
 docker compose build navbox
 docker compose up -d
-curl -sS http://localhost:8080/api/v1/health
+curl -sS http://localhost:8037/api/v1/health
 ```
 
 ## 文档

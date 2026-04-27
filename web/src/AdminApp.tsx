@@ -7,6 +7,7 @@ import {
   LogOut,
   Pencil,
   Plus,
+  RefreshCw,
   Save,
   Settings,
   Shield,
@@ -25,6 +26,7 @@ import {
   deleteSite,
   deleteTag,
   exportConfig,
+  fetchWebsiteIcon,
   getAdminSession,
   importConfig,
   listSites,
@@ -81,6 +83,7 @@ export function AdminApp() {
   const [siteDraft, setSiteDraft] = useState<SiteSaveReq>(emptySiteForm);
   const [editingSiteId, setEditingSiteId] = useState('');
   const [sitePanelOpen, setSitePanelOpen] = useState(false);
+  const [iconFetching, setIconFetching] = useState(false);
   const [tagDraft, setTagDraft] = useState<TagSaveReq>(emptyTagForm);
   const [editingTagId, setEditingTagId] = useState('');
   const [tagPanelOpen, setTagPanelOpen] = useState(false);
@@ -216,12 +219,36 @@ export function AdminApp() {
       return;
     }
     const icon = await uploadIcon(file);
+    event.target.value = '';
     setSiteDraft((current) => ({
       ...current,
       icon_type: 'image',
       icon_value: icon.url
     }));
     setNotice('icon 已上传');
+  }
+
+  async function handleFetchIcon() {
+    const targetURL = siteDraft.default_url.trim();
+    if (!targetURL) {
+      setNotice('请先填写默认 URL');
+      return;
+    }
+
+    setIconFetching(true);
+    try {
+      const icon = await fetchWebsiteIcon(targetURL);
+      setSiteDraft((current) => ({
+        ...current,
+        icon_type: 'image',
+        icon_value: icon.url
+      }));
+      setNotice('icon 已获取');
+    } catch {
+      setNotice('未获取到 icon');
+    } finally {
+      setIconFetching(false);
+    }
   }
 
   function openNewTag() {
@@ -649,6 +676,8 @@ export function AdminApp() {
             onChange={setSiteDraft}
             onSubmit={submitSite}
             onIconUpload={handleIconUpload}
+            onFetchIcon={handleFetchIcon}
+            iconFetching={iconFetching}
           />
         </SidePanel>
       )}
@@ -731,13 +760,17 @@ function SiteForm({
   tags,
   onChange,
   onSubmit,
-  onIconUpload
+  onIconUpload,
+  onFetchIcon,
+  iconFetching
 }: {
   draft: SiteSaveReq;
   tags: Tag[];
   onChange: (draft: SiteSaveReq) => void;
   onSubmit: (event: FormEvent) => void;
   onIconUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  onFetchIcon: () => void;
+  iconFetching: boolean;
 }) {
   function patch(next: Partial<SiteSaveReq>) {
     onChange({ ...draft, ...next });
@@ -798,11 +831,17 @@ function SiteForm({
         <span>图标值</span>
         <input value={draft.icon_value} onChange={(event) => patch({ icon_value: event.target.value })} />
       </label>
-      <label className="file-button inline-file">
-        <Upload size={17} aria-hidden="true" />
-        上传 icon
-        <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={onIconUpload} />
-      </label>
+      <div className="icon-actions">
+        <button type="button" onClick={onFetchIcon} disabled={iconFetching || !draft.default_url.trim()}>
+          <RefreshCw className={iconFetching ? 'spin' : ''} size={17} aria-hidden="true" />
+          {iconFetching ? '获取中' : '从网站获取'}
+        </button>
+        <label className="file-button inline-file">
+          <Upload size={17} aria-hidden="true" />
+          上传 icon
+          <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={onIconUpload} />
+        </label>
+      </div>
       <div className="checkbox-row">
         <label>
           <input type="checkbox" checked={draft.only_name} onChange={(event) => patch({ only_name: event.target.checked })} />

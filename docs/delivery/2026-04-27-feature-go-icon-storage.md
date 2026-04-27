@@ -61,11 +61,11 @@ go build ./...
 npm --prefix web run build
 docker compose build navbox
 docker compose up -d postgres navbox
-curl -sS -i -c /tmp/navbox-icon-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<admin-password>"}' http://127.0.0.1:8080/api/v1/admin/login
-curl -sS -i -F file=@/tmp/navbox-icon.png http://127.0.0.1:8080/api/v1/admin/icons/upload
-curl -sS -i -b /tmp/navbox-icon-cookies.txt -F file=@/tmp/navbox-icon.png http://127.0.0.1:8080/api/v1/admin/icons/upload
-curl -sS -i http://127.0.0.1:8080/uploads/<icon-file-name>
-curl -sS -i -b /tmp/navbox-icon-cookies.txt -F file=@/tmp/navbox-not-image.txt http://127.0.0.1:8080/api/v1/admin/icons/upload
+curl -sS -i -c /tmp/navbox-icon-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<admin-password>"}' http://127.0.0.1:8037/api/v1/admin/login
+curl -sS -i -F file=@/tmp/navbox-icon.png http://127.0.0.1:8037/api/v1/admin/icons/upload
+curl -sS -i -b /tmp/navbox-icon-cookies.txt -F file=@/tmp/navbox-icon.png http://127.0.0.1:8037/api/v1/admin/icons/upload
+curl -sS -i http://127.0.0.1:8037/uploads/<icon-file-name>
+curl -sS -i -b /tmp/navbox-icon-cookies.txt -F file=@/tmp/navbox-not-image.txt http://127.0.0.1:8037/api/v1/admin/icons/upload
 docker compose down
 ```
 

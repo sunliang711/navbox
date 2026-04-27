@@ -19,7 +19,7 @@ WORKDIR /app
 RUN addgroup -S navbox && adduser -S navbox -G navbox && mkdir -p /app/data/uploads && chown -R navbox:navbox /app
 COPY --from=go-build /out/navbox /app/navbox
 USER navbox
-ENV NAVBOX_HTTP_ADDR=:8080
+ENV NAVBOX_HTTP_ADDR=:8037
 ENV NAVBOX_UPLOAD_DIR=/app/data/uploads
-EXPOSE 8080
+EXPOSE 8037
 ENTRYPOINT ["/app/navbox"]

@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"navbox/internal/config"
+	"navbox/internal/dto"
 	"navbox/internal/response"
 	"navbox/internal/service"
 )
@@ -21,6 +22,7 @@ func NewIconHandler(cfg config.Config, service service.IconService) *IconHandler
 
 func (h *IconHandler) RegisterAdminRoutes(rg *gin.RouterGroup) {
 	rg.POST("/icons/upload", h.UploadIcon)
+	rg.POST("/icons/fetch", h.FetchIcon)
 }
 
 func (h *IconHandler) UploadIcon(c *gin.Context) {
@@ -44,6 +46,21 @@ func (h *IconHandler) UploadIcon(c *gin.Context) {
 	defer file.Close()
 
 	icon, err := h.service.UploadIcon(c.Request.Context(), file)
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	response.OK(c, icon)
+}
+
+func (h *IconHandler) FetchIcon(c *gin.Context) {
+	var req dto.FetchIconReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "参数错误")
+		return
+	}
+
+	icon, err := h.service.FetchIcon(c.Request.Context(), req.URL)
 	if err != nil {
 		writeServiceError(c, err)
 		return

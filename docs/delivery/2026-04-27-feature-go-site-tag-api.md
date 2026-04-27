@@ -70,17 +70,17 @@ go build ./...
 npm --prefix web run build
 docker compose build navbox
 docker compose up -d postgres navbox
-curl -sS http://127.0.0.1:8080/api/v1/health
-curl -sS -c /tmp/navbox-task04-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<admin-password>"}' http://127.0.0.1:8080/api/v1/admin/login
-curl -sS -b /tmp/navbox-task04-cookies.txt -H 'Content-Type: application/json' -d '{"name":"Dev"}' http://127.0.0.1:8080/api/v1/admin/tags
-curl -sS -b /tmp/navbox-task04-cookies.txt -H 'Content-Type: application/json' -d '{"name":"Monitor"}' http://127.0.0.1:8080/api/v1/admin/tags
-curl -sS -b /tmp/navbox-task04-cookies.txt -H 'Content-Type: application/json' -d '{"title":"Grafana","default_url":"https://grafana.example.com","tag_ids":["<dev-tag-id>","<monitor-tag-id>"]}' http://127.0.0.1:8080/api/v1/admin/sites
-curl -sS 'http://127.0.0.1:8080/api/v1/sites?tag_ids=<dev-tag-id>,<monitor-tag-id>'
-curl -sS 'http://127.0.0.1:8080/api/v1/sites?view=uncategorized'
-curl -sS -b /tmp/navbox-task04-cookies.txt -X PUT http://127.0.0.1:8080/api/v1/admin/tags/<dev-tag-id>/default
-curl -sS -b /tmp/navbox-task04-cookies.txt -X DELETE http://127.0.0.1:8080/api/v1/admin/tags/<monitor-tag-id>
-curl -sS http://127.0.0.1:8080/api/v1/config/public
-curl -sS -i -H 'Content-Type: application/json' -d '{"name":"Blocked"}' http://127.0.0.1:8080/api/v1/admin/tags
+curl -sS http://127.0.0.1:8037/api/v1/health
+curl -sS -c /tmp/navbox-task04-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<admin-password>"}' http://127.0.0.1:8037/api/v1/admin/login
+curl -sS -b /tmp/navbox-task04-cookies.txt -H 'Content-Type: application/json' -d '{"name":"Dev"}' http://127.0.0.1:8037/api/v1/admin/tags
+curl -sS -b /tmp/navbox-task04-cookies.txt -H 'Content-Type: application/json' -d '{"name":"Monitor"}' http://127.0.0.1:8037/api/v1/admin/tags
+curl -sS -b /tmp/navbox-task04-cookies.txt -H 'Content-Type: application/json' -d '{"title":"Grafana","default_url":"https://grafana.example.com","tag_ids":["<dev-tag-id>","<monitor-tag-id>"]}' http://127.0.0.1:8037/api/v1/admin/sites
+curl -sS 'http://127.0.0.1:8037/api/v1/sites?tag_ids=<dev-tag-id>,<monitor-tag-id>'
+curl -sS 'http://127.0.0.1:8037/api/v1/sites?view=uncategorized'
+curl -sS -b /tmp/navbox-task04-cookies.txt -X PUT http://127.0.0.1:8037/api/v1/admin/tags/<dev-tag-id>/default
+curl -sS -b /tmp/navbox-task04-cookies.txt -X DELETE http://127.0.0.1:8037/api/v1/admin/tags/<monitor-tag-id>
+curl -sS http://127.0.0.1:8037/api/v1/config/public
+curl -sS -i -H 'Content-Type: application/json' -d '{"name":"Blocked"}' http://127.0.0.1:8037/api/v1/admin/tags
 docker compose down
 ```
 

@@ -13,6 +13,7 @@ import (
 
 type IconService interface {
 	UploadIcon(ctx context.Context, file multipart.File) (*dto.IconResp, error)
+	FetchIcon(ctx context.Context, websiteURL string) (*dto.IconResp, error)
 }
 
 type iconService struct {
@@ -32,7 +33,10 @@ func (s *iconService) UploadIcon(ctx context.Context, file multipart.File) (*dto
 		}
 		return nil, err
 	}
+	return s.saveStoredIcon(ctx, stored)
+}
 
+func (s *iconService) saveStoredIcon(ctx context.Context, stored storage.StoredIcon) (*dto.IconResp, error) {
 	existing, err := s.repo.GetBySHA256(ctx, stored.SHA256)
 	if err != nil {
 		return nil, err

@@ -84,7 +84,7 @@ func Load() (Config, error) {
 
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("app.name", "navbox")
-	v.SetDefault("http.addr", ":8080")
+	v.SetDefault("http.addr", ":8037")
 	v.SetDefault("http.read_header_timeout", "5s")
 	v.SetDefault("http.shutdown_timeout", "10s")
 	v.SetDefault("log.level", "info")

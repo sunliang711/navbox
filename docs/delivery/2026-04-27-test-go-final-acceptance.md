@@ -52,7 +52,7 @@ npm --prefix web run build
 go build ./...
 docker compose build navbox
 docker compose up -d
-curl -sS http://localhost:8080/api/v1/health
+curl -sS http://localhost:8037/api/v1/health
 ```
 
 ## 风险与覆盖盲区

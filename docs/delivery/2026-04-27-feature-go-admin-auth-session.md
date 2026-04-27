@@ -79,14 +79,14 @@ npm --prefix web run build
 docker compose build navbox
 docker compose up -d postgres navbox
 docker compose logs --no-color navbox
-curl -sS -i http://127.0.0.1:8080/api/v1/admin/session
-curl -sS -i -c /tmp/navbox-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<initial-password>"}' http://127.0.0.1:8080/api/v1/admin/login
-curl -sS -i -b /tmp/navbox-cookies.txt http://127.0.0.1:8080/api/v1/admin/session
-curl -sS -i -b /tmp/navbox-cookies.txt -H 'Content-Type: application/json' -d '{"current_password":"<initial-password>","new_password":"<new-password>"}' http://127.0.0.1:8080/api/v1/admin/password
-curl -sS -i -H 'Content-Type: application/json' -d '{"password":"<initial-password>"}' http://127.0.0.1:8080/api/v1/admin/login
-curl -sS -i -c /tmp/navbox-cookies-new.txt -H 'Content-Type: application/json' -d '{"password":"<new-password>"}' http://127.0.0.1:8080/api/v1/admin/login
-curl -sS -i -b /tmp/navbox-cookies-new.txt -X POST http://127.0.0.1:8080/api/v1/admin/logout
-curl -sS -i -b /tmp/navbox-cookies-new.txt http://127.0.0.1:8080/api/v1/admin/session
+curl -sS -i http://127.0.0.1:8037/api/v1/admin/session
+curl -sS -i -c /tmp/navbox-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<initial-password>"}' http://127.0.0.1:8037/api/v1/admin/login
+curl -sS -i -b /tmp/navbox-cookies.txt http://127.0.0.1:8037/api/v1/admin/session
+curl -sS -i -b /tmp/navbox-cookies.txt -H 'Content-Type: application/json' -d '{"current_password":"<initial-password>","new_password":"<new-password>"}' http://127.0.0.1:8037/api/v1/admin/password
+curl -sS -i -H 'Content-Type: application/json' -d '{"password":"<initial-password>"}' http://127.0.0.1:8037/api/v1/admin/login
+curl -sS -i -c /tmp/navbox-cookies-new.txt -H 'Content-Type: application/json' -d '{"password":"<new-password>"}' http://127.0.0.1:8037/api/v1/admin/login
+curl -sS -i -b /tmp/navbox-cookies-new.txt -X POST http://127.0.0.1:8037/api/v1/admin/logout
+curl -sS -i -b /tmp/navbox-cookies-new.txt http://127.0.0.1:8037/api/v1/admin/session
 docker compose down
 ```
 

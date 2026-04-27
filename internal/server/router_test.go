@@ -18,6 +18,8 @@ func TestRegisterWebRoutes(t *testing.T) {
 
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.html"), []byte("<html>navbox</html>"), 0640))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "favicon.svg"), []byte("<svg></svg>"), 0640))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "site.webmanifest"), []byte(`{"name":"Navbox"}`), 0640))
 
 	router := gin.New()
 	registerWebRoutes(router, web.Assets{FS: http.Dir(dir)})
@@ -27,8 +29,11 @@ func TestRegisterWebRoutes(t *testing.T) {
 		path       string
 		wantStatus int
 		wantBody   string
+		wantType   string
 	}{
 		{name: "index", path: "/", wantStatus: http.StatusOK, wantBody: "navbox"},
+		{name: "root asset", path: "/favicon.svg", wantStatus: http.StatusOK, wantBody: "svg"},
+		{name: "manifest", path: "/site.webmanifest", wantStatus: http.StatusOK, wantBody: "Navbox", wantType: "application/manifest+json"},
 		{name: "spa fallback", path: "/admin", wantStatus: http.StatusOK, wantBody: "navbox"},
 		{name: "api not found", path: "/api/v1/missing", wantStatus: http.StatusNotFound, wantBody: "not found"},
 	}
@@ -42,6 +47,9 @@ func TestRegisterWebRoutes(t *testing.T) {
 
 			require.Equal(t, tt.wantStatus, recorder.Code)
 			require.Contains(t, recorder.Body.String(), tt.wantBody)
+			if tt.wantType != "" {
+				require.Contains(t, recorder.Header().Get("Content-Type"), tt.wantType)
+			}
 		})
 	}
 }

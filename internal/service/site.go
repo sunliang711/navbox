@@ -32,12 +32,13 @@ type SiteService interface {
 }
 
 type siteService struct {
-	siteRepo repo.SiteRepo
-	tagRepo  repo.TagRepo
+	siteRepo    repo.SiteRepo
+	tagRepo     repo.TagRepo
+	iconService IconService
 }
 
-func NewSiteService(siteRepo repo.SiteRepo, tagRepo repo.TagRepo) SiteService {
-	return &siteService{siteRepo: siteRepo, tagRepo: tagRepo}
+func NewSiteService(siteRepo repo.SiteRepo, tagRepo repo.TagRepo, iconService IconService) SiteService {
+	return &siteService{siteRepo: siteRepo, tagRepo: tagRepo, iconService: iconService}
 }
 
 func (s *siteService) ListSites(ctx context.Context, query dto.SiteListQuery) ([]dto.SiteResp, error) {
@@ -81,6 +82,12 @@ func (s *siteService) CreateSite(ctx context.Context, req dto.SiteSaveReq) (*dto
 	}
 
 	site := siteFromReq(req)
+	if shouldAutoFetchSiteIcon(site) {
+		if icon, err := s.iconService.FetchIcon(ctx, site.DefaultURL); err == nil {
+			site.IconType = "image"
+			site.IconValue = icon.URL
+		}
+	}
 	if err := s.siteRepo.CreateWithTags(ctx, &site, tagIDs); err != nil {
 		return nil, err
 	}
@@ -246,6 +253,10 @@ func siteFromReq(req dto.SiteSaveReq) model.Site {
 		IsFavorite:      req.IsFavorite,
 		SortOrder:       req.SortOrder,
 	}
+}
+
+func shouldAutoFetchSiteIcon(site model.Site) bool {
+	return strings.TrimSpace(site.IconValue) == "" && strings.TrimSpace(site.DefaultURL) != ""
 }
 
 func mapSiteView(view string) string {

@@ -63,16 +63,16 @@ go test ./...
 go build ./...
 docker compose build navbox
 docker compose up -d navbox
-curl -sS -i http://localhost:8080/admin
-curl -sS -i http://localhost:8080/
-curl -sS -i http://localhost:8080/api/v1/admin/session
-curl -sS -i -c /tmp/navbox-admin-ui-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<admin-password>"}' http://127.0.0.1:8080/api/v1/admin/login
-curl -sS -i -b /tmp/navbox-admin-ui-cookies.txt http://127.0.0.1:8080/api/v1/admin/session
-curl -sS -b /tmp/navbox-admin-ui-cookies.txt -H 'Content-Type: application/json' -d '{"name":"UI-1777284202","icon":"","color":"#2f7d6d","sort_order":808,"is_enabled":true}' http://127.0.0.1:8080/api/v1/admin/tags
-curl -sS -b /tmp/navbox-admin-ui-cookies.txt -H 'Content-Type: application/json' -d '{"title":"UI Site 1777284202","default_url":"https://ui-smoke.example.com","icon_type":"text","icon_value":"UI","tag_ids":["<tag-id>"]}' http://127.0.0.1:8080/api/v1/admin/sites
-curl -sS -b /tmp/navbox-admin-ui-cookies.txt -H 'Content-Type: application/json' -d '{"site_ids":["<site-id>"]}' -o /tmp/navbox-admin-ui-export.zip -D /tmp/navbox-admin-ui-export.headers http://127.0.0.1:8080/api/v1/admin/export
-curl -sS -i -b /tmp/navbox-admin-ui-cookies.txt -X DELETE http://127.0.0.1:8080/api/v1/admin/sites/<site-id>
-curl -sS -i -b /tmp/navbox-admin-ui-cookies.txt -X DELETE http://127.0.0.1:8080/api/v1/admin/tags/<tag-id>
+curl -sS -i http://localhost:8037/admin
+curl -sS -i http://localhost:8037/
+curl -sS -i http://localhost:8037/api/v1/admin/session
+curl -sS -i -c /tmp/navbox-admin-ui-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<admin-password>"}' http://127.0.0.1:8037/api/v1/admin/login
+curl -sS -i -b /tmp/navbox-admin-ui-cookies.txt http://127.0.0.1:8037/api/v1/admin/session
+curl -sS -b /tmp/navbox-admin-ui-cookies.txt -H 'Content-Type: application/json' -d '{"name":"UI-1777284202","icon":"","color":"#2f7d6d","sort_order":808,"is_enabled":true}' http://127.0.0.1:8037/api/v1/admin/tags
+curl -sS -b /tmp/navbox-admin-ui-cookies.txt -H 'Content-Type: application/json' -d '{"title":"UI Site 1777284202","default_url":"https://ui-smoke.example.com","icon_type":"text","icon_value":"UI","tag_ids":["<tag-id>"]}' http://127.0.0.1:8037/api/v1/admin/sites
+curl -sS -b /tmp/navbox-admin-ui-cookies.txt -H 'Content-Type: application/json' -d '{"site_ids":["<site-id>"]}' -o /tmp/navbox-admin-ui-export.zip -D /tmp/navbox-admin-ui-export.headers http://127.0.0.1:8037/api/v1/admin/export
+curl -sS -i -b /tmp/navbox-admin-ui-cookies.txt -X DELETE http://127.0.0.1:8037/api/v1/admin/sites/<site-id>
+curl -sS -i -b /tmp/navbox-admin-ui-cookies.txt -X DELETE http://127.0.0.1:8037/api/v1/admin/tags/<tag-id>
 ```
 
 验证结果：
@@ -85,7 +85,7 @@ curl -sS -i -b /tmp/navbox-admin-ui-cookies.txt -X DELETE http://127.0.0.1:8080/
 6. admin Site 创建接口可用。
 7. admin 导出接口可用。
 8. 测试创建的 Site 和 Tag 已删除。
-9. Docker 服务当前保持运行，可访问 `http://localhost:8080/` 和 `http://localhost:8080/admin`。
+9. Docker 服务当前保持运行，可访问 `http://localhost:8037/` 和 `http://localhost:8037/admin`。
 
 ## 风险与后续建议
 

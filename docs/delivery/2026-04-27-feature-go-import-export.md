@@ -67,20 +67,20 @@ go build ./...
 npm --prefix web run build
 docker compose build navbox
 docker compose up -d postgres navbox
-curl -sS -i -c /tmp/navbox-task06-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<admin-password>"}' http://localhost:8080/api/v1/admin/login
-curl -sS -b /tmp/navbox-task06-cookies.txt -F file=@/tmp/navbox-task06-icon.png http://localhost:8080/api/v1/admin/icons/upload
-curl -sS -b /tmp/navbox-task06-cookies.txt -H 'Content-Type: application/json' -d '{"name":"Task06-1777282658","icon":"","color":"#2563eb","sort_order":606}' http://localhost:8080/api/v1/admin/tags
-curl -sS -b /tmp/navbox-task06-cookies.txt -H 'Content-Type: application/json' -d '{"title":"Task06 Site 1777282658","default_url":"https://task06.example.com","icon_type":"image","icon_value":"/uploads/<icon-file>","tag_ids":["<tag-id>"]}' http://localhost:8080/api/v1/admin/sites
-curl -sS -b /tmp/navbox-task06-cookies.txt -H 'Content-Type: application/json' -d '{"site_ids":["<site-id>"]}' -o /tmp/navbox-task06-export.zip -D /tmp/navbox-task06-export.headers http://localhost:8080/api/v1/admin/export
+curl -sS -i -c /tmp/navbox-task06-cookies.txt -H 'Content-Type: application/json' -d '{"password":"<admin-password>"}' http://localhost:8037/api/v1/admin/login
+curl -sS -b /tmp/navbox-task06-cookies.txt -F file=@/tmp/navbox-task06-icon.png http://localhost:8037/api/v1/admin/icons/upload
+curl -sS -b /tmp/navbox-task06-cookies.txt -H 'Content-Type: application/json' -d '{"name":"Task06-1777282658","icon":"","color":"#2563eb","sort_order":606}' http://localhost:8037/api/v1/admin/tags
+curl -sS -b /tmp/navbox-task06-cookies.txt -H 'Content-Type: application/json' -d '{"title":"Task06 Site 1777282658","default_url":"https://task06.example.com","icon_type":"image","icon_value":"/uploads/<icon-file>","tag_ids":["<tag-id>"]}' http://localhost:8037/api/v1/admin/sites
+curl -sS -b /tmp/navbox-task06-cookies.txt -H 'Content-Type: application/json' -d '{"site_ids":["<site-id>"]}' -o /tmp/navbox-task06-export.zip -D /tmp/navbox-task06-export.headers http://localhost:8037/api/v1/admin/export
 unzip -l /tmp/navbox-task06-export.zip
 unzip -p /tmp/navbox-task06-export.zip navbox.json | jq '{version, sites: (.sites|length), tags: (.tags|length), icons: (.icons|length)}'
-curl -sS -i -b /tmp/navbox-task06-cookies.txt -F file=@/tmp/navbox-task06-export.zip http://localhost:8080/api/v1/admin/import
-curl -sS -i -b /tmp/navbox-task06-cookies.txt -X DELETE http://localhost:8080/api/v1/admin/sites/<site-id>
-curl -sS -i -b /tmp/navbox-task06-cookies.txt -X DELETE http://localhost:8080/api/v1/admin/tags/<tag-id>
-curl -sS -i -b /tmp/navbox-task06-cookies.txt -F file=@/tmp/navbox-task06-export.zip http://localhost:8080/api/v1/admin/import
-curl -sS 'http://localhost:8080/api/v1/sites?tag_ids=<tag-id>'
-curl -sS -i -H 'Content-Type: application/json' -d '{}' http://localhost:8080/api/v1/admin/export
-curl -sS -i -b /tmp/navbox-task06-cookies.txt -F file=@/tmp/navbox-task06-icon.png http://localhost:8080/api/v1/admin/import
+curl -sS -i -b /tmp/navbox-task06-cookies.txt -F file=@/tmp/navbox-task06-export.zip http://localhost:8037/api/v1/admin/import
+curl -sS -i -b /tmp/navbox-task06-cookies.txt -X DELETE http://localhost:8037/api/v1/admin/sites/<site-id>
+curl -sS -i -b /tmp/navbox-task06-cookies.txt -X DELETE http://localhost:8037/api/v1/admin/tags/<tag-id>
+curl -sS -i -b /tmp/navbox-task06-cookies.txt -F file=@/tmp/navbox-task06-export.zip http://localhost:8037/api/v1/admin/import
+curl -sS 'http://localhost:8037/api/v1/sites?tag_ids=<tag-id>'
+curl -sS -i -H 'Content-Type: application/json' -d '{}' http://localhost:8037/api/v1/admin/export
+curl -sS -i -b /tmp/navbox-task06-cookies.txt -F file=@/tmp/navbox-task06-icon.png http://localhost:8037/api/v1/admin/import
 docker compose down
 ```
 

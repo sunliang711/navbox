@@ -11,7 +11,7 @@
 
 | 变量名 | 用途 | 示例值 | 是否敏感 | 影响服务 |
 | --- | --- | --- | :---: | --- |
-| `NAVBOX_HTTP_ADDR` | HTTP 监听地址 | `:8080` | 否 | navbox |
+| `NAVBOX_HTTP_ADDR` | HTTP 监听地址 | `:8037` | 否 | navbox |
 | `NAVBOX_DATABASE_DSN` | PostgreSQL 连接串 | `host=postgres user=navbox password=navbox dbname=navbox port=5432 sslmode=disable TimeZone=UTC` | 是 | navbox |
 | `NAVBOX_UPLOAD_DIR` | icon 上传目录 | `/app/data/uploads` | 否 | navbox |
 | `NAVBOX_AUTH_SESSION_TTL` | admin Session 有效期 | `24h` | 否 | navbox |
@@ -23,7 +23,7 @@
 
 | 配置路径 | 默认值/当前值 | 说明 | 是否需按环境调整 |
 | --- | --- | --- | :---: |
-| `http.addr` | `:8080` | HTTP 监听地址 | 是 |
+| `http.addr` | `:8037` | HTTP 监听地址 | 是 |
 | `http.read_header_timeout` | `5s` | 请求头读取超时 | 否 |
 | `http.shutdown_timeout` | `10s` | 优雅关闭超时 | 否 |
 | `database.dsn` | 空字符串 | 数据库连接串，启动必填 | 是 |
@@ -86,15 +86,15 @@ docker compose up -d
 docker compose logs -f navbox
 ```
 
-7. 打开 `http://localhost:8080/admin` 登录，并修改 admin 密码。
+7. 打开 `http://localhost:8037/admin` 登录，并修改 admin 密码。
 
 ## 六、验证清单
 
 - [ ] `docker compose ps` 显示 `postgres` healthy。
 - [ ] `docker compose ps` 显示 `navbox` running。
-- [ ] `curl -sS http://localhost:8080/api/v1/health` 返回 `status=ok`。
-- [ ] `http://localhost:8080/` 可访问游客首页。
-- [ ] `http://localhost:8080/admin` 可访问 admin 页面。
+- [ ] `curl -sS http://localhost:8037/api/v1/health` 返回 `status=ok`。
+- [ ] `http://localhost:8037/` 可访问游客首页。
+- [ ] `http://localhost:8037/admin` 可访问 admin 页面。
 - [ ] admin 可登录、修改密码、创建 Tag、创建网站。
 - [ ] icon 上传后 `/uploads/<file>` 可公开访问。
 - [ ] 导出 zip 包包含 `navbox.json`。

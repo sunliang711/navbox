@@ -50,6 +50,10 @@ func NewIconStore(dir string, maxBytes int64) (*IconStore, error) {
 }
 
 func (s *IconStore) Save(file multipart.File) (StoredIcon, error) {
+	return s.SaveReader(file)
+}
+
+func (s *IconStore) SaveReader(reader io.Reader) (StoredIcon, error) {
 	tmp, err := os.CreateTemp(s.dir, ".icon-*")
 	if err != nil {
 		return StoredIcon{}, fmt.Errorf("create temp icon file: %w", err)
@@ -65,7 +69,7 @@ func (s *IconStore) Save(file multipart.File) (StoredIcon, error) {
 	var size int64
 
 	for {
-		n, readErr := file.Read(buf)
+		n, readErr := reader.Read(buf)
 		if n > 0 {
 			size += int64(n)
 			if size > s.maxBytes {

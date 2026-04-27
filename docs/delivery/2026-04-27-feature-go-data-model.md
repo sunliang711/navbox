@@ -88,7 +88,7 @@ go build ./...
 npm --prefix web run build
 docker compose build navbox
 docker compose up -d postgres navbox
-curl -sS http://127.0.0.1:8080/api/v1/health
+curl -sS http://127.0.0.1:8037/api/v1/health
 docker compose exec -T postgres psql -U navbox -d navbox -c "\dt"
 docker compose down
 ```

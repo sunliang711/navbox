@@ -93,7 +93,7 @@ go test ./...
 docker compose config
 docker compose build navbox
 docker compose up -d postgres navbox
-curl -sS http://127.0.0.1:8080/api/v1/health
+curl -sS http://127.0.0.1:8037/api/v1/health
 docker compose down
 ```
 
