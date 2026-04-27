@@ -26,3 +26,6 @@ initial_password_length = 16
 [upload]
 dir = "./data/uploads"
 max_bytes = 1048576
+
+[icon_fetch]
+allowed_private_cidrs = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"

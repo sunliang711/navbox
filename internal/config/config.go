@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -10,12 +11,13 @@ import (
 )
 
 type Config struct {
-	App      AppConfig      `mapstructure:"app"`
-	HTTP     HTTPConfig     `mapstructure:"http"`
-	Log      LogConfig      `mapstructure:"log"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Auth     AuthConfig     `mapstructure:"auth"`
-	Upload   UploadConfig   `mapstructure:"upload"`
+	App       AppConfig       `mapstructure:"app"`
+	HTTP      HTTPConfig      `mapstructure:"http"`
+	Log       LogConfig       `mapstructure:"log"`
+	Database  DatabaseConfig  `mapstructure:"database"`
+	Auth      AuthConfig      `mapstructure:"auth"`
+	Upload    UploadConfig    `mapstructure:"upload"`
+	IconFetch IconFetchConfig `mapstructure:"icon_fetch"`
 }
 
 type AppConfig struct {
@@ -51,6 +53,10 @@ type AuthConfig struct {
 type UploadConfig struct {
 	Dir      string `mapstructure:"dir"`
 	MaxBytes int64  `mapstructure:"max_bytes"`
+}
+
+type IconFetchConfig struct {
+	AllowedPrivateCIDRs string `mapstructure:"allowed_private_cidrs"`
 }
 
 func Load() (Config, error) {
@@ -100,6 +106,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("auth.initial_password_length", 16)
 	v.SetDefault("upload.dir", "./data/uploads")
 	v.SetDefault("upload.max_bytes", 1048576)
+	v.SetDefault("icon_fetch.allowed_private_cidrs", "")
 }
 
 func (c Config) Validate() error {
@@ -150,6 +157,15 @@ func (c Config) Validate() error {
 	}
 	if c.Upload.MaxBytes <= 0 {
 		return errors.New("upload max_bytes must be greater than zero")
+	}
+	for _, item := range strings.Split(c.IconFetch.AllowedPrivateCIDRs, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, err := netip.ParsePrefix(item); err != nil {
+			return fmt.Errorf("invalid icon_fetch allowed_private_cidrs: %w", err)
+		}
 	}
 	return nil
 }

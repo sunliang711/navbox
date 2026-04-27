@@ -23,6 +23,7 @@ services:
       NAVBOX_DATABASE_DSN: "host=postgres user=navbox password=navbox dbname=navbox port=5432 sslmode=disable TimeZone=UTC"
       NAVBOX_UPLOAD_DIR: "/app/data/uploads"
       NAVBOX_AUTH_SESSION_TTL: "24h"
+      NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
     ports:
       - "8037:8037"
     volumes:

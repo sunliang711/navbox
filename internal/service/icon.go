@@ -3,8 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"mime/multipart"
+	"net/netip"
+	"strings"
 
+	"navbox/internal/config"
 	"navbox/internal/dto"
 	"navbox/internal/model"
 	"navbox/internal/repo"
@@ -17,12 +21,17 @@ type IconService interface {
 }
 
 type iconService struct {
-	repo  repo.IconRepo
-	store *storage.IconStore
+	repo                repo.IconRepo
+	store               *storage.IconStore
+	allowedPrivateCIDRs []netip.Prefix
 }
 
-func NewIconService(repo repo.IconRepo, store *storage.IconStore) IconService {
-	return &iconService{repo: repo, store: store}
+func NewIconService(cfg config.Config, repo repo.IconRepo, store *storage.IconStore) (IconService, error) {
+	allowedPrivateCIDRs, err := parseAllowedPrivateCIDRs(cfg.IconFetch.AllowedPrivateCIDRs)
+	if err != nil {
+		return nil, err
+	}
+	return &iconService{repo: repo, store: store, allowedPrivateCIDRs: allowedPrivateCIDRs}, nil
 }
 
 func (s *iconService) UploadIcon(ctx context.Context, file multipart.File) (*dto.IconResp, error) {
@@ -72,4 +81,21 @@ func mapIcon(icon model.Icon) dto.IconResp {
 		SizeBytes: icon.SizeBytes,
 		CreatedAt: icon.CreatedAt,
 	}
+}
+
+func parseAllowedPrivateCIDRs(value string) ([]netip.Prefix, error) {
+	items := strings.Split(value, ",")
+	result := make([]netip.Prefix, 0, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		prefix, err := netip.ParsePrefix(item)
+		if err != nil {
+			return nil, fmt.Errorf("invalid allowed private cidr %q: %w", item, err)
+		}
+		result = append(result, prefix)
+	}
+	return result, nil
 }

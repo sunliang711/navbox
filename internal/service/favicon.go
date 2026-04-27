@@ -34,7 +34,7 @@ func (s *iconService) FetchIcon(ctx context.Context, websiteURL string) (*dto.Ic
 	fetchCtx, cancel := context.WithTimeout(ctx, faviconFetchTimeout)
 	defer cancel()
 
-	client := newRestrictedHTTPClient()
+	client := newRestrictedHTTPClient(s.allowedPrivateCIDRs)
 	candidates := loadIconCandidates(fetchCtx, client, baseURL)
 	for _, candidate := range candidates {
 		icon, err := s.fetchAndStoreIcon(fetchCtx, client, candidate)
@@ -196,11 +196,11 @@ func validateFetchURL(parsed *url.URL) error {
 	}
 }
 
-func newRestrictedHTTPClient() *http.Client {
+func newRestrictedHTTPClient(allowedPrivateCIDRs []netip.Prefix) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	dialer := &net.Dialer{Timeout: faviconFetchTimeout}
 	transport.DialContext = func(ctx context.Context, network string, address string) (net.Conn, error) {
-		return restrictedDialContext(ctx, dialer, network, address)
+		return restrictedDialContext(ctx, dialer, network, address, allowedPrivateCIDRs)
 	}
 
 	return &http.Client{
@@ -215,7 +215,7 @@ func newRestrictedHTTPClient() *http.Client {
 	}
 }
 
-func restrictedDialContext(ctx context.Context, dialer *net.Dialer, network string, address string) (net.Conn, error) {
+func restrictedDialContext(ctx context.Context, dialer *net.Dialer, network string, address string, allowedPrivateCIDRs []netip.Prefix) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return nil, fmt.Errorf("split address: %w", err)
@@ -227,7 +227,7 @@ func restrictedDialContext(ctx context.Context, dialer *net.Dialer, network stri
 	}
 	var dialErr error
 	for _, ip := range ips {
-		if isAllowedPublicIP(ip.IP) {
+		if isAllowedFetchIP(ip.IP, allowedPrivateCIDRs) {
 			conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.IP.String(), port))
 			if err == nil {
 				return conn, nil
@@ -241,16 +241,28 @@ func restrictedDialContext(ctx context.Context, dialer *net.Dialer, network stri
 	return nil, ErrInvalidInput
 }
 
-func isAllowedPublicIP(ip net.IP) bool {
+func isAllowedFetchIP(ip net.IP, allowedPrivateCIDRs []netip.Prefix) bool {
 	addr, ok := netip.AddrFromSlice(ip)
 	if !ok {
 		return false
 	}
 	addr = addr.Unmap()
-	if !addr.IsGlobalUnicast() || addr.IsPrivate() || addr.IsLoopback() || addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast() || addr.IsMulticast() || addr.IsUnspecified() {
+	if !addr.IsGlobalUnicast() || addr.IsLoopback() || addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast() || addr.IsMulticast() || addr.IsUnspecified() {
 		return false
 	}
+	if addr.IsPrivate() {
+		return isAllowedByPrefix(addr, allowedPrivateCIDRs)
+	}
 	return !isSpecialUseIP(addr)
+}
+
+func isAllowedByPrefix(addr netip.Addr, prefixes []netip.Prefix) bool {
+	for _, prefix := range prefixes {
+		if prefix.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 func isSpecialUseIP(addr netip.Addr) bool {

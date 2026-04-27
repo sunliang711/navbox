@@ -68,6 +68,7 @@ docker compose build navbox
 | `NAVBOX_DATABASE_DSN` | PostgreSQL DSN | `host=postgres user=navbox password=navbox dbname=navbox port=5432 sslmode=disable TimeZone=UTC` |
 | `NAVBOX_UPLOAD_DIR` | icon 上传目录 | `/app/data/uploads` |
 | `NAVBOX_AUTH_SESSION_TTL` | admin Session 有效期 | `24h` |
+| `NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS` | 允许获取 icon 的内网 CIDR 白名单 | `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16` |
 
 运行时目录：
 

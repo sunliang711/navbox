@@ -2,6 +2,7 @@ package service
 
 import (
 	"net"
+	"net/netip"
 	"net/url"
 	"strings"
 	"testing"
@@ -56,16 +57,19 @@ func TestExtractIconCandidates(t *testing.T) {
 	require.Equal(t, "https://example.com/apps/favicon.ico", candidates[1].String())
 }
 
-func TestIsAllowedPublicIP(t *testing.T) {
+func TestIsAllowedFetchIP(t *testing.T) {
+	allowedPrivate := []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}
 	tests := []struct {
-		name string
-		ip   string
-		want bool
+		name    string
+		ip      string
+		allowed []netip.Prefix
+		want    bool
 	}{
 		{name: "public ipv4", ip: "8.8.8.8", want: true},
 		{name: "public ipv6", ip: "2001:4860:4860::8888", want: true},
 		{name: "loopback", ip: "127.0.0.1", want: false},
-		{name: "private", ip: "10.0.0.1", want: false},
+		{name: "private blocked by default", ip: "10.0.0.1", want: false},
+		{name: "private allowed by cidr", ip: "10.1.1.99", allowed: allowedPrivate, want: true},
 		{name: "link local", ip: "169.254.169.254", want: false},
 		{name: "carrier grade nat", ip: "100.64.0.1", want: false},
 		{name: "proxy fake ip", ip: "198.18.1.29", want: true},
@@ -74,7 +78,7 @@ func TestIsAllowedPublicIP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, isAllowedPublicIP(net.ParseIP(tt.ip)))
+			require.Equal(t, tt.want, isAllowedFetchIP(net.ParseIP(tt.ip), tt.allowed))
 		})
 	}
 }
