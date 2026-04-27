@@ -17,6 +17,12 @@ conn_max_lifetime = "1h"
 conn_max_idle_time = "30m"
 connect_timeout = "5s"
 
+[auth]
+session_ttl = "24h"
+cookie_name = "navbox_admin_session"
+cookie_secure = false
+initial_password_length = 16
+
 [upload]
 dir = "./data/uploads"
 max_bytes = 1048576

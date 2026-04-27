@@ -7,13 +7,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 
+	"navbox/internal/config"
 	"navbox/internal/handler"
 	"navbox/internal/middleware"
 	"navbox/internal/response"
+	"navbox/internal/service"
 	"navbox/internal/web"
 )
 
-func NewRouter(logger zerolog.Logger, healthHandler *handler.HealthHandler, assets web.Assets) *gin.Engine {
+func NewRouter(cfg config.Config, logger zerolog.Logger, healthHandler *handler.HealthHandler, authHandler *handler.AuthHandler, authService service.AuthService, assets web.Assets) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
@@ -21,6 +23,7 @@ func NewRouter(logger zerolog.Logger, healthHandler *handler.HealthHandler, asse
 
 	api := router.Group("/api/v1")
 	healthHandler.RegisterRoutes(api)
+	authHandler.RegisterRoutes(api, middleware.AdminSession(cfg, authService))
 
 	registerWebRoutes(router, assets)
 

@@ -7,9 +7,11 @@ import (
 )
 
 const (
-	CodeOK       = 200
-	CodeNotFound = 404
-	CodeError    = 500
+	CodeOK           = 200
+	CodeBadRequest   = 400
+	CodeUnauthorized = 401
+	CodeNotFound     = 404
+	CodeError        = 500
 )
 
 type Body struct {
