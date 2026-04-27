@@ -1,4 +1,5 @@
 .DS_Store
+data/
 tmp/
 temp/
 *.tmp
@@ -14,6 +15,8 @@ temp/
 .vscode/
 
 dist/
+!internal/web/dist/
+!internal/web/dist/index.html
 node_modules/
 target/
 build/

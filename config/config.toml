@@ -1,0 +1,14 @@
+[app]
+name = "navbox"
+
+[http]
+addr = ":8080"
+read_header_timeout = "5s"
+shutdown_timeout = "10s"
+
+[log]
+level = "info"
+
+[upload]
+dir = "./data/uploads"
+max_bytes = 1048576

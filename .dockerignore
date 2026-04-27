@@ -1,0 +1,12 @@
+.git
+.gitignore
+.githooks
+.pre-commit-config.yaml
+.precommit-allow
+.DS_Store
+data
+node_modules
+web/node_modules
+web/dist
+tmp
+temp
