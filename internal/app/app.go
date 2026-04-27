@@ -13,6 +13,7 @@ import (
 	"navbox/internal/repo"
 	"navbox/internal/server"
 	"navbox/internal/service"
+	"navbox/internal/storage"
 	"navbox/internal/web"
 )
 
@@ -26,11 +27,14 @@ func Run() {
 			repo.NewIconRepo,
 			repo.NewSiteRepo,
 			repo.NewTagRepo,
+			storage.NewIconStoreFromConfig,
 			service.NewAuthService,
+			service.NewIconService,
 			service.NewSiteService,
 			service.NewTagService,
 			handler.NewAuthHandler,
 			handler.NewHealthHandler,
+			handler.NewIconHandler,
 			handler.NewSiteHandler,
 			handler.NewTagHandler,
 			web.NewAssets,

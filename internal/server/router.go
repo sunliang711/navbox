@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -15,7 +17,7 @@ import (
 	"navbox/internal/web"
 )
 
-func NewRouter(cfg config.Config, logger zerolog.Logger, healthHandler *handler.HealthHandler, authHandler *handler.AuthHandler, siteHandler *handler.SiteHandler, tagHandler *handler.TagHandler, authService service.AuthService, assets web.Assets) *gin.Engine {
+func NewRouter(cfg config.Config, logger zerolog.Logger, healthHandler *handler.HealthHandler, authHandler *handler.AuthHandler, iconHandler *handler.IconHandler, siteHandler *handler.SiteHandler, tagHandler *handler.TagHandler, authService service.AuthService, assets web.Assets) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
@@ -28,12 +30,32 @@ func NewRouter(cfg config.Config, logger zerolog.Logger, healthHandler *handler.
 	authHandler.RegisterRoutes(api, middleware.AdminSession(cfg, authService))
 
 	admin := api.Group("/admin", middleware.AdminSession(cfg, authService))
+	iconHandler.RegisterAdminRoutes(admin)
 	siteHandler.RegisterAdminRoutes(admin)
 	tagHandler.RegisterAdminRoutes(admin)
 
+	registerUploadRoutes(router, cfg)
 	registerWebRoutes(router, assets)
 
 	return router
+}
+
+func registerUploadRoutes(router *gin.Engine, cfg config.Config) {
+	router.GET("/uploads/:file", func(c *gin.Context) {
+		fileName := c.Param("file")
+		if fileName == "" || fileName != filepath.Base(fileName) {
+			response.Error(c, http.StatusNotFound, response.CodeNotFound, "not found")
+			return
+		}
+
+		path := filepath.Join(cfg.Upload.Dir, fileName)
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			response.Error(c, http.StatusNotFound, response.CodeNotFound, "not found")
+			return
+		}
+		c.File(path)
+	})
 }
 
 func registerWebRoutes(router *gin.Engine, assets web.Assets) {
