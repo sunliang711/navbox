@@ -61,10 +61,12 @@ func registerUploadRoutes(router *gin.Engine, cfg config.Config) {
 
 func registerWebRoutes(router *gin.Engine, assets web.Assets) {
 	fileServer := http.FileServer(assets.FS)
+	serveIndex := func(c *gin.Context) {
+		c.Request.URL.Path = "/"
+		fileServer.ServeHTTP(c.Writer, c.Request)
+	}
 
-	router.GET("/", func(c *gin.Context) {
-		c.FileFromFS("index.html", assets.FS)
-	})
+	router.GET("/", serveIndex)
 	router.GET("/assets/*filepath", func(c *gin.Context) {
 		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
@@ -73,6 +75,6 @@ func registerWebRoutes(router *gin.Engine, assets web.Assets) {
 			response.Error(c, http.StatusNotFound, response.CodeNotFound, "not found")
 			return
 		}
-		c.FileFromFS("index.html", assets.FS)
+		serveIndex(c)
 	})
 }
