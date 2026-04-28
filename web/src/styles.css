@@ -31,7 +31,7 @@ button {
 .app-shell {
   min-height: 100vh;
   background: #ffffff;
-  padding: 26px 42px 42px;
+  padding: 42px 42px 42px;
 }
 
 .content {
@@ -655,7 +655,7 @@ button {
 
 @media (max-width: 860px) {
   .app-shell {
-    padding: 20px 14px;
+    padding: 30px 14px 20px;
   }
 
   .toolbar {
