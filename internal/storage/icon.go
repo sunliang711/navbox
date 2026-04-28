@@ -1,8 +1,10 @@
 package storage
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +17,7 @@ import (
 
 const (
 	detectBytes = 512
+	mimeTypeSVG = "image/svg+xml"
 )
 
 var (
@@ -108,10 +111,16 @@ func (s *IconStore) SaveReader(reader io.Reader) (StoredIcon, error) {
 		return StoredIcon{}, ErrInvalidIcon
 	}
 
-	mimeType := http.DetectContentType(firstBytes)
-	ext, ok := allowedIconExtension(mimeType)
-	if !ok {
-		return StoredIcon{}, ErrInvalidIcon
+	content := firstBytes
+	if DetectIconContentType(firstBytes) == mimeTypeSVG {
+		content, err = os.ReadFile(tmpPath)
+		if err != nil {
+			return StoredIcon{}, fmt.Errorf("read temp icon file: %w", err)
+		}
+	}
+	mimeType, ext, err := ValidateIconContent(content)
+	if err != nil {
+		return StoredIcon{}, err
 	}
 
 	sum := hex.EncodeToString(hash.Sum(nil))
@@ -163,6 +172,28 @@ func AllowedIconExtension(mimeType string) (string, bool) {
 	return allowedIconExtension(mimeType)
 }
 
+func DetectIconContentType(content []byte) string {
+	if isSVGContent(content) {
+		return mimeTypeSVG
+	}
+	return http.DetectContentType(content)
+}
+
+func ValidateIconContent(content []byte) (string, string, error) {
+	if len(content) == 0 {
+		return "", "", ErrInvalidIcon
+	}
+	mimeType := DetectIconContentType(content)
+	ext, ok := allowedIconExtension(mimeType)
+	if !ok {
+		return "", "", ErrInvalidIcon
+	}
+	if mimeType == mimeTypeSVG && !isSafeSVG(content) {
+		return "", "", ErrInvalidIcon
+	}
+	return mimeType, ext, nil
+}
+
 func allowedIconExtension(mimeType string) (string, bool) {
 	switch strings.ToLower(mimeType) {
 	case "image/png":
@@ -175,7 +206,53 @@ func allowedIconExtension(mimeType string) (string, bool) {
 		return ".webp", true
 	case "image/x-icon", "image/vnd.microsoft.icon":
 		return ".ico", true
+	case mimeTypeSVG:
+		return ".svg", true
 	default:
 		return "", false
+	}
+}
+
+func isSVGContent(content []byte) bool {
+	text := strings.TrimSpace(string(bytes.TrimPrefix(content, []byte{0xef, 0xbb, 0xbf})))
+	if text == "" {
+		return false
+	}
+	lower := strings.ToLower(text)
+	return strings.HasPrefix(lower, "<svg") || strings.HasPrefix(lower, "<?xml") && strings.Contains(lower, "<svg")
+}
+
+func isSafeSVG(content []byte) bool {
+	decoder := xml.NewDecoder(bytes.NewReader(content))
+	seenRoot := false
+	for {
+		token, err := decoder.Token()
+		if errors.Is(err, io.EOF) {
+			return seenRoot
+		}
+		if err != nil {
+			return false
+		}
+		start, ok := token.(xml.StartElement)
+		if !ok {
+			continue
+		}
+		name := strings.ToLower(start.Name.Local)
+		if !seenRoot {
+			if name != "svg" {
+				return false
+			}
+			seenRoot = true
+		}
+		if name == "script" {
+			return false
+		}
+		for _, attr := range start.Attr {
+			attrName := strings.ToLower(attr.Name.Local)
+			attrValue := strings.ToLower(strings.TrimSpace(attr.Value))
+			if strings.HasPrefix(attrName, "on") || strings.Contains(attrValue, "javascript:") {
+				return false
+			}
+		}
 	}
 }

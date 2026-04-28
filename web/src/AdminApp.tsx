@@ -1242,7 +1242,11 @@ function SiteForm({
         <label className="file-button inline-file">
           <Upload size={17} aria-hidden="true" />
           {t('uploadIcon')}
-          <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={onIconUpload} />
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/svg+xml,.svg"
+            onChange={onIconUpload}
+          />
         </label>
       </div>
       <div className="checkbox-row">

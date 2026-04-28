@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -396,12 +395,11 @@ func (s *importExportService) validateArchiveIcon(item dto.ArchiveIcon, content 
 	if hex.EncodeToString(sum[:]) != shaValue {
 		return ErrInvalidInput
 	}
-	mimeType := http.DetectContentType(content)
-	if mimeType != strings.TrimSpace(item.MIMEType) {
+	mimeType, ext, err := storage.ValidateIconContent(content)
+	if err != nil {
 		return ErrInvalidInput
 	}
-	ext, ok := storage.AllowedIconExtension(mimeType)
-	if !ok {
+	if mimeType != strings.TrimSpace(item.MIMEType) {
 		return ErrInvalidInput
 	}
 	if item.FileName != shaValue+ext {

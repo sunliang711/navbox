@@ -24,6 +24,27 @@ func TestIconStoreSavePNG(t *testing.T) {
 	require.NotEmpty(t, icon.SHA256)
 }
 
+func TestIconStoreSaveSVG(t *testing.T) {
+	store, err := NewIconStore(t.TempDir(), 2048)
+	require.NoError(t, err)
+
+	icon, err := store.Save(newFakeMultipartFile([]byte(`<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect width="64" height="64" fill="#0f172a"/></svg>`)))
+
+	require.NoError(t, err)
+	require.Equal(t, "image/svg+xml", icon.MIMEType)
+	require.Contains(t, icon.FileName, ".svg")
+	require.NotEmpty(t, icon.SHA256)
+}
+
+func TestIconStoreRejectsUnsafeSVG(t *testing.T) {
+	store, err := NewIconStore(t.TempDir(), 2048)
+	require.NoError(t, err)
+
+	_, err = store.Save(newFakeMultipartFile([]byte(`<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script></svg>`)))
+
+	require.ErrorIs(t, err, ErrInvalidIcon)
+}
+
 func TestIconStoreRejectsText(t *testing.T) {
 	store, err := NewIconStore(t.TempDir(), 1024)
 	require.NoError(t, err)
