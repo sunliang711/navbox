@@ -1,12 +1,14 @@
 import {
   ArrowRight,
+  Copy,
   ExternalLink,
   Heart,
   Loader2,
+  MoreHorizontal,
   Search,
   X
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { listSites, listTags } from './api';
 import { AdminApp } from './AdminApp';
 import { PreferenceControls, PreferencesProvider, usePreferences } from './preferences';
@@ -15,8 +17,10 @@ import './styles.css';
 import type { RecentSite, Site, Tag, TagMatchMode } from './types';
 
 type ViewMode = 'all' | 'favorite' | 'recent';
+type OpenMethod = 'new_window' | 'current_window';
 
 const preferLanKey = 'navbox_prefer_lan';
+const previewEnabledKey = 'navbox_preview_enabled';
 const tagQueryKey = 'tags';
 const tagMatchQueryKey = 'match';
 const viewQueryKey = 'view';
@@ -39,9 +43,11 @@ function VisitorApp() {
   const [search, setSearch] = useState('');
   const [view, setView] = useState<ViewMode>('all');
   const [preferLan, setPreferLan] = useState(() => loadPreferLan());
+  const [previewEnabled, setPreviewEnabled] = useState(() => loadPreviewEnabled());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +125,14 @@ function VisitorApp() {
     };
   }, [ready, search, selectedTagIds, t, tagMatch, view]);
 
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+    const timer = window.setTimeout(() => setNotice(''), 1800);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const selectedTagSet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
   const currentTitle = useMemo(() => {
     if (view === 'favorite') {
@@ -145,6 +159,14 @@ function VisitorApp() {
     });
   }
 
+  function togglePreview() {
+    setPreviewEnabled((current) => {
+      const next = !current;
+      savePreviewEnabled(next);
+      return next;
+    });
+  }
+
   function toggleTag(tagId: string) {
     setView('all');
     setSelectedTagIds((current) => {
@@ -167,17 +189,25 @@ function VisitorApp() {
     saveVisitorQueryState(view, selectedTagIds, nextMatch);
   }
 
-  function openSite(site: Site) {
+  function openSite(site: Site, method: OpenMethod = normalizeOpenMethod(site.open_method)) {
     const url = getSiteURL(site, preferLan);
     if (!url) {
       return;
     }
     setRecentSites(saveRecentSite(site));
-    if (site.open_method === 'current_window') {
+    if (method === 'current_window') {
       window.location.assign(url);
       return;
     }
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  async function copySiteURL(url: string) {
+    if (!url) {
+      return;
+    }
+    await copyText(url);
+    setNotice(t('urlCopied'));
   }
 
   return (
@@ -202,7 +232,14 @@ function VisitorApp() {
             </div>
             <div className="toolbar-actions">
               <PreferenceControls />
-              <label className={preferLan ? 'lan-toggle active' : 'lan-toggle'}>
+              <label className={previewEnabled ? 'toolbar-toggle preview-toggle active' : 'toolbar-toggle preview-toggle'}>
+                <input type="checkbox" checked={previewEnabled} onChange={togglePreview} />
+                <span className="toggle-track" aria-hidden="true">
+                  <span className="toggle-thumb" />
+                </span>
+                <span>{t('preview')}</span>
+              </label>
+              <label className={preferLan ? 'toolbar-toggle lan-toggle active' : 'toolbar-toggle lan-toggle'}>
                 <input type="checkbox" checked={preferLan} onChange={togglePreferLan} />
                 <span className="toggle-track" aria-hidden="true">
                   <span className="toggle-thumb" />
@@ -299,12 +336,20 @@ function VisitorApp() {
           {!loading && !error && displaySites.length > 0 && (
             <div className="site-grid">
               {displaySites.map((site) => (
-                <SiteCard key={site.id} site={site} preferLan={preferLan} onOpen={openSite} />
+                <SiteCard
+                  key={site.id}
+                  site={site}
+                  preferLan={preferLan}
+                  previewEnabled={previewEnabled}
+                  onCopyURL={copySiteURL}
+                  onOpen={openSite}
+                />
               ))}
             </div>
           )}
         </section>
       </section>
+      {notice && <div className="toast">{notice}</div>}
     </main>
   );
 }
@@ -312,20 +357,28 @@ function VisitorApp() {
 function SiteCard({
   site,
   preferLan,
+  previewEnabled,
+  onCopyURL,
   onOpen
 }: {
   site: Site;
   preferLan: boolean;
-  onOpen: (site: Site) => void;
+  previewEnabled: boolean;
+  onCopyURL: (url: string) => void;
+  onOpen: (site: Site, method?: OpenMethod) => void;
 }) {
   const { t } = usePreferences();
-  const opensInNewTab = site.open_method === 'new_window';
+  const openMethod = normalizeOpenMethod(site.open_method);
+  const opensInNewTab = openMethod === 'new_window';
   const hasLanURL = site.lan_url.trim() !== '';
   const usingLanURL = preferLan && hasLanURL;
   const previewTimer = useRef<number | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const previewURL = getSiteURL(site, preferLan);
-  const canPreview = isPreviewableURL(previewURL);
+  const canPreview = previewEnabled && isPreviewableURL(previewURL);
 
   useEffect(() => {
     return () => {
@@ -334,6 +387,45 @@ function SiteCard({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!previewEnabled) {
+      hideSitePreview();
+    }
+  }, [previewEnabled]);
+
+  useEffect(() => {
+    if (!menuPosition) {
+      return;
+    }
+
+    function closeOnOutside(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        closeMenu();
+        return;
+      }
+      if (menuRef.current?.contains(target) || menuButtonRef.current?.contains(target)) {
+        return;
+      }
+      closeMenu();
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        closeMenu();
+      }
+    }
+
+    window.addEventListener('pointerdown', closeOnOutside, true);
+    window.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('scroll', closeMenu, true);
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutside, true);
+      window.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
+  }, [menuPosition]);
 
   function showSitePreview() {
     if (!canPreview) {
@@ -352,8 +444,40 @@ function SiteCard({
     setShowPreview(false);
   }
 
+  function closeMenu() {
+    setMenuPosition(null);
+  }
+
+  function openMenuAt(x: number, y: number) {
+    hideSitePreview();
+    setMenuPosition(clampMenuPosition(x, y));
+  }
+
+  function openContextMenu(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    openMenuAt(event.clientX, event.clientY);
+  }
+
+  function openButtonMenu(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    openMenuAt(rect.right - siteMenuWidth, rect.bottom + 8);
+  }
+
+  function openWith(method: OpenMethod) {
+    closeMenu();
+    onOpen(site, method);
+  }
+
+  function copyURL(url: string) {
+    closeMenu();
+    onCopyURL(url);
+  }
+
   return (
-    <div className="site-card-wrap" onMouseEnter={showSitePreview} onMouseLeave={hideSitePreview}>
+    <div className="site-card-wrap" onContextMenu={openContextMenu} onMouseEnter={showSitePreview} onMouseLeave={hideSitePreview}>
       <button className="site-card" type="button" onClick={() => onOpen(site)}>
         <div className="site-main">
           <SiteIcon site={site} />
@@ -385,6 +509,48 @@ function SiteCard({
           </div>
         </div>
       </button>
+      <button
+        className="site-menu-button"
+        type="button"
+        ref={menuButtonRef}
+        onClick={openButtonMenu}
+        title={t('siteMoreActions')}
+        aria-label={t('siteMoreActions')}
+      >
+        <MoreHorizontal size={16} aria-hidden="true" />
+      </button>
+      {menuPosition && (
+        <div
+          className="site-context-menu"
+          ref={menuRef}
+          style={{ left: menuPosition.x, top: menuPosition.y }}
+          role="menu"
+        >
+          <button type="button" role="menuitem" onClick={() => openWith('new_window')}>
+            <ExternalLink size={15} aria-hidden="true" />
+            <span>{t('openNewTab')}</span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => openWith('current_window')}>
+            <ArrowRight size={15} aria-hidden="true" />
+            <span>{t('openCurrentTab')}</span>
+          </button>
+          <div className="site-menu-separator" />
+          <button type="button" role="menuitem" onClick={() => copyURL(previewURL)}>
+            <Copy size={15} aria-hidden="true" />
+            <span>{t('copyCurrentURL')}</span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => copyURL(site.default_url)}>
+            <Copy size={15} aria-hidden="true" />
+            <span>{t('copyDefaultURL')}</span>
+          </button>
+          {hasLanURL && (
+            <button type="button" role="menuitem" onClick={() => copyURL(site.lan_url)}>
+              <Copy size={15} aria-hidden="true" />
+              <span>{t('copyLanURL')}</span>
+            </button>
+          )}
+        </div>
+      )}
       {showPreview && (
         <div className="site-preview" aria-hidden="true">
           <iframe
@@ -440,6 +606,46 @@ function isPreviewableURL(url: string): boolean {
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   } catch {
     return false;
+  }
+}
+
+const siteMenuWidth = 210;
+const siteMenuHeight = 232;
+
+function normalizeOpenMethod(value: string): OpenMethod {
+  return value === 'current_window' ? 'current_window' : 'new_window';
+}
+
+function clampMenuPosition(x: number, y: number): { x: number; y: number } {
+  const maxX = Math.max(8, window.innerWidth - siteMenuWidth - 8);
+  const maxY = Math.max(8, window.innerHeight - siteMenuHeight - 8);
+  return {
+    x: Math.min(Math.max(8, x), maxX),
+    y: Math.min(Math.max(8, y), maxY)
+  };
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      // 浏览器拒绝 Clipboard API 时回退到传统复制方式。
+    }
+  }
+
+  const input = document.createElement('textarea');
+  input.value = value;
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  document.body.appendChild(input);
+  try {
+    input.focus();
+    input.select();
+    document.execCommand('copy');
+  } finally {
+    document.body.removeChild(input);
   }
 }
 
@@ -502,6 +708,22 @@ function loadPreferLan(): boolean {
 function savePreferLan(value: boolean) {
   try {
     window.localStorage.setItem(preferLanKey, String(value));
+  } catch {
+    // localStorage 不可用时只保留当前会话状态。
+  }
+}
+
+function loadPreviewEnabled(): boolean {
+  try {
+    return window.localStorage.getItem(previewEnabledKey) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function savePreviewEnabled(value: boolean) {
+  try {
+    window.localStorage.setItem(previewEnabledKey, String(value));
   } catch {
     // localStorage 不可用时只保留当前会话状态。
   }

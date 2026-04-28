@@ -64,7 +64,7 @@ button {
   align-items: center;
   justify-self: end;
   justify-content: flex-end;
-  gap: 10px 14px;
+  gap: 8px 12px;
   grid-column: 3;
   min-width: 0;
 }
@@ -224,7 +224,7 @@ button {
   color: #26313d;
 }
 
-.lan-toggle {
+.toolbar-toggle {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -239,11 +239,15 @@ button {
   white-space: nowrap;
 }
 
+.preview-toggle.active {
+  color: #2563eb;
+}
+
 .lan-toggle.active {
   color: #2f7d6d;
 }
 
-.lan-toggle input {
+.toolbar-toggle input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -272,15 +276,23 @@ button {
   transition: transform 0.16s ease;
 }
 
+.preview-toggle.active .toggle-track {
+  background: #2563eb;
+}
+
 .lan-toggle.active .toggle-track {
   background: #2f7d6d;
+}
+
+.preview-toggle:focus-within .toggle-track {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
 }
 
 .lan-toggle:focus-within .toggle-track {
   box-shadow: 0 0 0 3px rgba(47, 125, 109, 0.18);
 }
 
-.lan-toggle.active .toggle-thumb {
+.toolbar-toggle.active .toggle-thumb {
   transform: translateX(16px);
 }
 
@@ -402,7 +414,7 @@ button {
   border: 1px solid #eef0f3;
   border-radius: 14px;
   background: #ffffff;
-  padding: 18px 22px;
+  padding: 18px 54px 18px 22px;
   color: inherit;
   text-align: left;
   box-shadow: 0 2px 12px rgba(17, 24, 39, 0.05);
@@ -410,6 +422,74 @@ button {
     border-color 0.16s ease,
     box-shadow 0.16s ease,
     transform 0.16s ease;
+}
+
+.site-menu-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #a5b4c4;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.site-card-wrap:hover .site-menu-button,
+.site-menu-button:focus-visible,
+.site-menu-button:hover {
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.site-context-menu {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  width: 210px;
+  border: 1px solid #dbe3ea;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 6px;
+  box-shadow: 0 18px 44px rgba(17, 24, 39, 0.18);
+}
+
+.site-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #344054;
+  padding: 0 9px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.site-context-menu button:hover,
+.site-context-menu button:focus-visible {
+  outline: 0;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.site-menu-separator {
+  height: 1px;
+  margin: 5px 4px;
+  background: #eef2f7;
 }
 
 .site-card:hover {
@@ -711,7 +791,12 @@ button {
 
   .site-card {
     min-height: 112px;
-    padding: 15px;
+    padding: 15px 50px 15px 15px;
+  }
+
+  .site-menu-button {
+    top: 12px;
+    right: 12px;
   }
 
   .site-preview {
@@ -1301,6 +1386,7 @@ button {
 :root[data-theme='dark'] .search-box,
 :root[data-theme='dark'] .site-card,
 :root[data-theme='dark'] .site-preview,
+:root[data-theme='dark'] .site-context-menu,
 :root[data-theme='dark'] .preference-controls,
 :root[data-theme='dark'] .tag-match-toggle,
 :root[data-theme='dark'] .admin-link,
@@ -1388,11 +1474,13 @@ button {
 }
 
 :root[data-theme='dark'] .filter-pill,
-:root[data-theme='dark'] .lan-toggle,
+:root[data-theme='dark'] .toolbar-toggle,
 :root[data-theme='dark'] .admin-link,
 :root[data-theme='dark'] .preference-button,
 :root[data-theme='dark'] .tag-match-toggle button,
-:root[data-theme='dark'] .icon-button {
+:root[data-theme='dark'] .icon-button,
+:root[data-theme='dark'] .site-menu-button,
+:root[data-theme='dark'] .site-context-menu button {
   color: #94a3b8;
 }
 
@@ -1400,7 +1488,11 @@ button {
 :root[data-theme='dark'] .preference-button:hover,
 :root[data-theme='dark'] .tag-match-toggle button:hover,
 :root[data-theme='dark'] .icon-button:hover,
-:root[data-theme='dark'] .admin-link:hover {
+:root[data-theme='dark'] .admin-link:hover,
+:root[data-theme='dark'] .site-menu-button:hover,
+:root[data-theme='dark'] .site-card-wrap:hover .site-menu-button,
+:root[data-theme='dark'] .site-context-menu button:hover,
+:root[data-theme='dark'] .site-context-menu button:focus-visible {
   border-color: #334155;
   background: #1e293b;
   color: #f8fafc;
@@ -1420,11 +1512,22 @@ button {
   color: #94a3b8;
 }
 
-:root[data-theme='dark'] .site-network-badge.active,
-:root[data-theme='dark'] .lan-toggle.active {
+:root[data-theme='dark'] .preview-toggle.active {
+  color: #bfdbfe;
+}
+
+:root[data-theme='dark'] .site-network-badge.active {
   border-color: #166534;
   background: #052e16;
   color: #86efac;
+}
+
+:root[data-theme='dark'] .lan-toggle.active {
+  color: #86efac;
+}
+
+:root[data-theme='dark'] .site-menu-separator {
+  background: #1f2937;
 }
 
 :root[data-theme='dark'] .state {
