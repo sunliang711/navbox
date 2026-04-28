@@ -16,10 +16,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/navbox ./cmd/navbox
 
 FROM alpine:3.22
 WORKDIR /app
-RUN addgroup -S navbox && adduser -S navbox -G navbox && mkdir -p /app/data/uploads && chown -R navbox:navbox /app
+RUN apk add --no-cache su-exec && addgroup -S navbox && adduser -S navbox -G navbox && mkdir -p /app/data/uploads && chown -R navbox:navbox /app
 COPY --from=go-build /out/navbox /app/navbox
-USER navbox
+COPY docker-entrypoint.sh /usr/local/bin/navbox-entrypoint
+RUN chmod +x /usr/local/bin/navbox-entrypoint
 ENV NAVBOX_HTTP_ADDR=:8037
 ENV NAVBOX_UPLOAD_DIR=/app/data/uploads
 EXPOSE 8037
-ENTRYPOINT ["/app/navbox"]
+ENTRYPOINT ["navbox-entrypoint"]
+CMD ["/app/navbox"]
