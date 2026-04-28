@@ -406,36 +406,33 @@ export function usePreferences(): PreferencesContextValue {
 
 export function PreferenceControls() {
   const { language, setLanguage, setTheme, t, theme } = usePreferences();
+  const nextTheme = theme === 'light' ? 'dark' : 'light';
+  const nextThemeLabel = nextTheme === 'dark' ? t('darkMode') : t('lightMode');
 
   return (
-    <div className="preference-controls" aria-label={t('language')}>
-      <button
-        className={theme === 'light' ? 'preference-button active' : 'preference-button'}
-        type="button"
-        onClick={() => setTheme('light')}
-        title={t('lightMode')}
-      >
-        <Sun size={15} aria-hidden="true" />
-        <span>{t('lightMode')}</span>
-      </button>
-      <button
-        className={theme === 'dark' ? 'preference-button active' : 'preference-button'}
-        type="button"
-        onClick={() => setTheme('dark')}
-        title={t('darkMode')}
-      >
-        <Moon size={15} aria-hidden="true" />
-        <span>{t('darkMode')}</span>
-      </button>
-      <button
-        className={language === 'zh' ? 'preference-button active' : 'preference-button'}
-        type="button"
-        onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-        title={t('language')}
-      >
-        <Languages size={15} aria-hidden="true" />
-        <span>{language === 'zh' ? '中文' : 'EN'}</span>
-      </button>
+    <div className="preference-controls">
+      <div className="preference-group" role="group" aria-label={`${t('lightMode')} / ${t('darkMode')}`}>
+        <button
+          className="preference-button theme-preference-button"
+          type="button"
+          onClick={() => setTheme(nextTheme)}
+          title={nextThemeLabel}
+          aria-label={nextThemeLabel}
+        >
+          {theme === 'light' ? <Moon size={15} aria-hidden="true" /> : <Sun size={15} aria-hidden="true" />}
+        </button>
+      </div>
+      <div className="preference-group" role="group" aria-label={t('language')}>
+        <button
+          className={language === 'zh' ? 'preference-button active' : 'preference-button'}
+          type="button"
+          onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
+          title={t('language')}
+        >
+          <Languages size={15} aria-hidden="true" />
+          <span>{language === 'zh' ? '中文' : 'EN'}</span>
+        </button>
+      </div>
     </div>
   );
 }

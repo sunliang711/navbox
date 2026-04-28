@@ -72,6 +72,12 @@ button {
 .preference-controls {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
+}
+
+.preference-group {
+  display: inline-flex;
+  align-items: center;
   gap: 4px;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -80,7 +86,7 @@ button {
   box-shadow: 0 8px 18px rgba(31, 41, 51, 0.05);
 }
 
-.preference-button {
+.preference-controls .preference-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -97,12 +103,17 @@ button {
   white-space: nowrap;
 }
 
-.preference-button:hover {
+.preference-controls .theme-preference-button {
+  width: 28px;
+  padding: 0;
+}
+
+.preference-controls .preference-button:hover {
   background: #f8fafc;
   color: #111827;
 }
 
-.preference-button.active {
+.preference-controls .preference-button.active {
   border-color: #bfdbfe;
   background: #eff6ff;
   color: #2563eb;
@@ -1387,7 +1398,7 @@ button {
 :root[data-theme='dark'] .site-card,
 :root[data-theme='dark'] .site-preview,
 :root[data-theme='dark'] .site-context-menu,
-:root[data-theme='dark'] .preference-controls,
+:root[data-theme='dark'] .preference-group,
 :root[data-theme='dark'] .tag-match-toggle,
 :root[data-theme='dark'] .admin-link,
 :root[data-theme='dark'] .login-panel,
