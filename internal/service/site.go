@@ -17,6 +17,8 @@ const (
 	siteViewDefault       = "default"
 	siteViewFavorite      = "favorite"
 	siteViewUncategorized = "uncategorized"
+	siteTagMatchAll       = "all"
+	siteTagMatchAny       = "any"
 	defaultOpenMethod     = "new_window"
 	defaultIconType       = "text"
 )
@@ -47,6 +49,11 @@ func (s *siteService) ListSites(ctx context.Context, query dto.SiteListQuery) ([
 		return nil, err
 	}
 
+	tagMatch := normalizeSiteTagMatch(query.TagMatch)
+	if tagMatch == "" {
+		return nil, ErrInvalidInput
+	}
+
 	view := strings.TrimSpace(query.View)
 	if view == siteViewDefault && len(tagIDs) == 0 {
 		defaultTag, err := s.tagRepo.GetDefault(ctx)
@@ -60,9 +67,10 @@ func (s *siteService) ListSites(ctx context.Context, query dto.SiteListQuery) ([
 	}
 
 	filter := repo.SiteListFilter{
-		Search: strings.TrimSpace(query.Search),
-		TagIDs: tagIDs,
-		View:   mapSiteView(view),
+		Search:   strings.TrimSpace(query.Search),
+		TagIDs:   tagIDs,
+		TagMatch: tagMatch,
+		View:     mapSiteView(view),
 	}
 	sites, err := s.siteRepo.List(ctx, filter)
 	if err != nil {
@@ -257,6 +265,17 @@ func siteFromReq(req dto.SiteSaveReq) model.Site {
 
 func shouldAutoFetchSiteIcon(site model.Site) bool {
 	return strings.TrimSpace(site.IconValue) == "" && strings.TrimSpace(site.DefaultURL) != ""
+}
+
+func normalizeSiteTagMatch(tagMatch string) string {
+	switch strings.TrimSpace(tagMatch) {
+	case "", siteTagMatchAll:
+		return repo.SiteTagMatchAll
+	case siteTagMatchAny:
+		return repo.SiteTagMatchAny
+	default:
+		return ""
+	}
 }
 
 func mapSiteView(view string) string {

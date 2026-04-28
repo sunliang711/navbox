@@ -7,17 +7,18 @@ import {
   X
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { getPublicConfig, listSites, listTags } from './api';
+import { listSites, listTags } from './api';
 import { AdminApp } from './AdminApp';
 import { PreferenceControls, PreferencesProvider, usePreferences } from './preferences';
 import { loadRecentSites, saveRecentSite } from './recent';
 import './styles.css';
-import type { RecentSite, Site, Tag } from './types';
+import type { RecentSite, Site, Tag, TagMatchMode } from './types';
 
 type ViewMode = 'all' | 'favorite' | 'recent';
 
 const preferLanKey = 'navbox_prefer_lan';
 const tagQueryKey = 'tags';
+const tagMatchQueryKey = 'match';
 const viewQueryKey = 'view';
 
 export function App() {
@@ -34,6 +35,7 @@ function VisitorApp() {
   const [sites, setSites] = useState<Site[]>([]);
   const [recentSites, setRecentSites] = useState<RecentSite[]>(() => loadRecentSites());
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [tagMatch, setTagMatch] = useState<TagMatchMode>('all');
   const [search, setSearch] = useState('');
   const [view, setView] = useState<ViewMode>('all');
   const [preferLan, setPreferLan] = useState(() => loadPreferLan());
@@ -48,21 +50,19 @@ function VisitorApp() {
       setLoading(true);
       setError('');
       try {
-        const [tagList, config] = await Promise.all([listTags(), getPublicConfig()]);
+        const tagList = await listTags();
         if (cancelled) {
           return;
         }
         const enabledTags = tagList.filter((tag) => tag.is_enabled);
-        const defaultTag = enabledTags.find((tag) => tag.id === config.default_tag_id);
         const queryState = loadVisitorQueryState(enabledTags);
         setTags(enabledTags);
+        setTagMatch(queryState.tagMatch);
         if (queryState.view !== 'all') {
           setView(queryState.view);
           setSelectedTagIds([]);
         } else if (queryState.hasQueryState) {
           setSelectedTagIds(queryState.tagIds);
-        } else if (defaultTag) {
-          setSelectedTagIds([defaultTag.id]);
         }
         setReady(true);
       } catch {
@@ -96,6 +96,7 @@ function VisitorApp() {
         const data = await listSites({
           search: search.trim(),
           tagIds: selectedTagIds,
+          tagMatch: selectedTagIds.length > 0 ? tagMatch : undefined,
           view: view === 'all' ? undefined : view
         });
         if (!cancelled) {
@@ -116,7 +117,7 @@ function VisitorApp() {
     return () => {
       cancelled = true;
     };
-  }, [ready, search, selectedTagIds, t, view]);
+  }, [ready, search, selectedTagIds, t, tagMatch, view]);
 
   const selectedTagSet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
   const currentTitle = useMemo(() => {
@@ -148,17 +149,22 @@ function VisitorApp() {
     setView('all');
     setSelectedTagIds((current) => {
       const next = current.includes(tagId) ? current.filter((item) => item !== tagId) : [...current, tagId];
-      saveVisitorQueryState('all', next);
+      saveVisitorQueryState('all', next, tagMatch);
       return next;
     });
   }
 
   function switchView(nextView: ViewMode) {
     setView(nextView);
-    saveVisitorQueryState(nextView, []);
+    saveVisitorQueryState(nextView, [], tagMatch);
     if (nextView !== 'all') {
       setSelectedTagIds([]);
     }
+  }
+
+  function switchTagMatch(nextMatch: TagMatchMode) {
+    setTagMatch(nextMatch);
+    saveVisitorQueryState(view, selectedTagIds, nextMatch);
   }
 
   function openSite(site: Site) {
@@ -215,7 +221,7 @@ function VisitorApp() {
                 onClick={() => {
                   setSelectedTagIds([]);
                   setView('all');
-                  saveVisitorQueryState('all', []);
+                  saveVisitorQueryState('all', [], tagMatch);
                 }}
               >
                 {t('allTools')}
@@ -245,6 +251,24 @@ function VisitorApp() {
                 {t('recentVisits')}
               </button>
             </nav>
+            {view === 'all' && selectedTagIds.length > 1 && (
+              <div className="tag-match-toggle" role="group" aria-label={t('tagMatchMode')}>
+                <button
+                  className={tagMatch === 'all' ? 'active' : undefined}
+                  type="button"
+                  onClick={() => switchTagMatch('all')}
+                >
+                  {t('matchAllTags')}
+                </button>
+                <button
+                  className={tagMatch === 'any' ? 'active' : undefined}
+                  type="button"
+                  onClick={() => switchTagMatch('any')}
+                >
+                  {t('matchAnyTag')}
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
@@ -368,10 +392,14 @@ function getSiteURL(site: Site, preferLan: boolean): string {
   return site.default_url;
 }
 
-function loadVisitorQueryState(tags: Tag[]): { hasQueryState: boolean; tagIds: string[]; view: ViewMode } {
+function loadVisitorQueryState(
+  tags: Tag[]
+): { hasQueryState: boolean; tagIds: string[]; tagMatch: TagMatchMode; view: ViewMode } {
   const params = new URLSearchParams(window.location.search);
   const queryView = params.get(viewQueryKey);
   const view = isViewMode(queryView) ? queryView : 'all';
+  const queryTagMatch = params.get(tagMatchQueryKey);
+  const tagMatch = isTagMatchMode(queryTagMatch) ? queryTagMatch : 'all';
   const tagSet = new Set(tags.map((tag) => tag.id));
   const tagIds = (params.get(tagQueryKey) || '')
     .split(',')
@@ -379,19 +407,24 @@ function loadVisitorQueryState(tags: Tag[]): { hasQueryState: boolean; tagIds: s
     .filter((tagId) => tagSet.has(tagId));
 
   return {
-    hasQueryState: params.has(tagQueryKey) || params.has(viewQueryKey),
+    hasQueryState: params.has(tagQueryKey) || params.has(tagMatchQueryKey) || params.has(viewQueryKey),
     tagIds,
+    tagMatch,
     view
   };
 }
 
-function saveVisitorQueryState(view: ViewMode, tagIds: string[]) {
+function saveVisitorQueryState(view: ViewMode, tagIds: string[], tagMatch: TagMatchMode) {
   const url = new URL(window.location.href);
   url.searchParams.delete(tagQueryKey);
+  url.searchParams.delete(tagMatchQueryKey);
   url.searchParams.delete(viewQueryKey);
 
   if (view === 'all' && tagIds.length > 0) {
     url.searchParams.set(tagQueryKey, tagIds.join(','));
+    if (tagMatch === 'any') {
+      url.searchParams.set(tagMatchQueryKey, tagMatch);
+    }
   } else {
     url.searchParams.set(viewQueryKey, view);
   }
@@ -401,6 +434,10 @@ function saveVisitorQueryState(view: ViewMode, tagIds: string[]) {
 
 function isViewMode(view: string | null): view is ViewMode {
   return view === 'all' || view === 'favorite' || view === 'recent';
+}
+
+function isTagMatchMode(tagMatch: string | null): tagMatch is TagMatchMode {
+  return tagMatch === 'all' || tagMatch === 'any';
 }
 
 function loadPreferLan(): boolean {

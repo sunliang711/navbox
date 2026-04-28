@@ -39,9 +39,12 @@ export type PublicConfig = {
   default_tag_id: string;
 };
 
+export type TagMatchMode = 'all' | 'any';
+
 export type SiteQuery = {
   search?: string;
   tagIds?: string[];
+  tagMatch?: TagMatchMode;
   view?: string;
 };
 

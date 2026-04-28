@@ -15,12 +15,15 @@ import (
 const (
 	SiteViewFavorite      = "favorite"
 	SiteViewUncategorized = "uncategorized"
+	SiteTagMatchAll       = "all"
+	SiteTagMatchAny       = "any"
 )
 
 type SiteListFilter struct {
-	Search string
-	TagIDs []uuid.UUID
-	View   string
+	Search   string
+	TagIDs   []uuid.UUID
+	TagMatch string
+	View     string
 }
 
 type SiteOrderUpdate struct {
@@ -303,8 +306,10 @@ func applySiteFilter(query *gorm.DB, filter SiteListFilter) *gorm.DB {
 			Table("site_tags").
 			Select("site_id").
 			Where("tag_id IN ?", filter.TagIDs).
-			Group("site_id").
-			Having("COUNT(DISTINCT tag_id) = ?", len(filter.TagIDs))
+			Group("site_id")
+		if filter.TagMatch != SiteTagMatchAny {
+			subQuery = subQuery.Having("COUNT(DISTINCT tag_id) = ?", len(filter.TagIDs))
+		}
 		query = query.Where("sites.id IN (?)", subQuery)
 	}
 	switch filter.View {

@@ -3,9 +3,10 @@ package dto
 import "time"
 
 type SiteListQuery struct {
-	Search string
-	TagIDs []string
-	View   string
+	Search   string
+	TagIDs   []string
+	TagMatch string
+	View     string
 }
 
 type SiteResp struct {

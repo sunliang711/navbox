@@ -76,6 +76,9 @@ export function listSites(query: SiteQuery): Promise<Site[]> {
   if (query.view) {
     params.set('view', query.view);
   }
+  if (query.tagMatch) {
+    params.set('tag_match', query.tagMatch);
+  }
   for (const tagId of query.tagIds ?? []) {
     params.append('tag_ids', tagId);
   }

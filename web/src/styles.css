@@ -110,8 +110,11 @@ button {
 
 .filter-bar {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-  width: min(920px, 100%);
+  gap: 10px 14px;
+  width: min(1100px, 100%);
 }
 
 .pill-nav {
@@ -159,6 +162,44 @@ button {
   background: #eff6ff;
   color: #2563eb;
   box-shadow: none;
+}
+
+.tag-match-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 3px;
+  box-shadow: 0 8px 18px rgba(31, 41, 51, 0.05);
+}
+
+.tag-match-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #667085;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tag-match-toggle button:hover {
+  background: #f8fafc;
+  color: #111827;
+}
+
+.tag-match-toggle button.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .admin-link {
@@ -591,6 +632,7 @@ button {
   }
 
   .filter-bar {
+    align-items: flex-start;
     justify-content: flex-start;
     width: 100%;
   }
@@ -614,6 +656,10 @@ button {
     min-height: 32px;
     padding: 0 12px;
     font-size: 13px;
+  }
+
+  .tag-match-toggle {
+    margin-left: 4px;
   }
 
   .search-box {
@@ -1017,6 +1063,93 @@ button {
   gap: 12px;
 }
 
+.export-scope {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.export-scope button.active {
+  border-color: #1f5d52;
+  background: #e1f0eb;
+  color: #143f38;
+}
+
+.export-picker {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.export-picker-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.export-picker-header span {
+  color: #65756f;
+  font-size: 13px;
+}
+
+.export-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.export-picker-actions button {
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.export-list {
+  display: grid;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid #d6e0dc;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.export-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #e5ece9;
+}
+
+.export-option:last-child {
+  border-bottom: 0;
+}
+
+.export-option input {
+  width: auto;
+  min-height: 0;
+}
+
+.export-option-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.export-option-main strong,
+.export-option-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-option-main span {
+  color: #6a7a75;
+  font-size: 12px;
+}
+
 .file-button {
   position: relative;
   cursor: pointer;
@@ -1099,6 +1232,15 @@ button {
   .form-grid {
     grid-template-columns: 1fr;
   }
+
+  .export-scope,
+  .export-picker-header {
+    grid-template-columns: 1fr;
+  }
+
+  .export-picker-actions {
+    justify-content: flex-start;
+  }
 }
 
 :root[data-theme='dark'] {
@@ -1116,6 +1258,7 @@ button {
 :root[data-theme='dark'] .search-box,
 :root[data-theme='dark'] .site-card,
 :root[data-theme='dark'] .preference-controls,
+:root[data-theme='dark'] .tag-match-toggle,
 :root[data-theme='dark'] .admin-link,
 :root[data-theme='dark'] .login-panel,
 :root[data-theme='dark'] .admin-table-wrap,
@@ -1200,12 +1343,14 @@ button {
 :root[data-theme='dark'] .lan-toggle,
 :root[data-theme='dark'] .admin-link,
 :root[data-theme='dark'] .preference-button,
+:root[data-theme='dark'] .tag-match-toggle button,
 :root[data-theme='dark'] .icon-button {
   color: #94a3b8;
 }
 
 :root[data-theme='dark'] .filter-pill:hover,
 :root[data-theme='dark'] .preference-button:hover,
+:root[data-theme='dark'] .tag-match-toggle button:hover,
 :root[data-theme='dark'] .icon-button:hover,
 :root[data-theme='dark'] .admin-link:hover {
   border-color: #334155;
@@ -1214,7 +1359,8 @@ button {
 }
 
 :root[data-theme='dark'] .filter-pill.active,
-:root[data-theme='dark'] .preference-button.active {
+:root[data-theme='dark'] .preference-button.active,
+:root[data-theme='dark'] .tag-match-toggle button.active {
   border-color: #2563eb;
   background: #1d4ed8;
   color: #ffffff;
@@ -1275,6 +1421,26 @@ button {
   border-color: #2563eb;
   background: #2563eb;
   color: #ffffff;
+}
+
+:root[data-theme='dark'] .export-scope button.active {
+  border-color: #2563eb;
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+:root[data-theme='dark'] .export-list {
+  border-color: #334155;
+  background: #111827;
+}
+
+:root[data-theme='dark'] .export-option {
+  border-color: #1f2937;
+}
+
+:root[data-theme='dark'] .export-picker-header span,
+:root[data-theme='dark'] .export-option-main span {
+  color: #94a3b8;
 }
 
 :root[data-theme='dark'] .admin-table th,

@@ -48,6 +48,7 @@ import { PreferenceControls, usePreferences } from './preferences';
 import type { ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
 
 type AdminTab = 'sites' | 'tags' | 'io' | 'password';
+type ExportMode = 'all' | 'sites' | 'tags';
 
 const emptySiteForm: SiteSaveReq = {
   title: '',
@@ -86,6 +87,8 @@ export function AdminApp() {
   const [notice, setNotice] = useState('');
   const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>([]);
   const [batchTagIds, setBatchTagIds] = useState<string[]>([]);
+  const [exportMode, setExportMode] = useState<ExportMode>('all');
+  const [exportSiteIds, setExportSiteIds] = useState<string[]>([]);
   const [exportTagIds, setExportTagIds] = useState<string[]>([]);
   const [siteDraft, setSiteDraft] = useState<SiteSaveReq>(emptySiteForm);
   const [editingSiteId, setEditingSiteId] = useState('');
@@ -158,6 +161,7 @@ export function AdminApp() {
 
   const selectedSiteSet = useMemo(() => new Set(selectedSiteIds), [selectedSiteIds]);
   const batchTagSet = useMemo(() => new Set(batchTagIds), [batchTagIds]);
+  const exportSiteSet = useMemo(() => new Set(exportSiteIds), [exportSiteIds]);
   const exportTagSet = useMemo(() => new Set(exportTagIds), [exportTagIds]);
 
   function handleAdminError(error: unknown): boolean {
@@ -171,6 +175,7 @@ export function AdminApp() {
     setTagPanelOpen(false);
     setSelectedSiteIds([]);
     setBatchTagIds([]);
+    setExportSiteIds([]);
     setExportTagIds([]);
     return true;
   }
@@ -506,14 +511,14 @@ export function AdminApp() {
     }
   }
 
-  async function downloadExport(mode: 'all' | 'sites' | 'tags') {
+  async function downloadExport(mode: ExportMode) {
     const req =
       mode === 'sites'
-        ? { site_ids: selectedSiteIds }
+        ? { site_ids: exportSiteIds }
         : mode === 'tags'
           ? { tag_ids: exportTagIds }
           : {};
-    if (mode === 'sites' && selectedSiteIds.length === 0) {
+    if (mode === 'sites' && exportSiteIds.length === 0) {
       setNotice(t('chooseSites'));
       return;
     }
@@ -909,27 +914,94 @@ export function AdminApp() {
           <div className="admin-tool-panel">
             <h2>{t('export')}</h2>
             <div className="stack">
-              <button className="primary-button" type="button" onClick={() => downloadExport('all')}>
-                <Download size={17} aria-hidden="true" />
-                {t('exportAll')}
-              </button>
-              <button type="button" onClick={() => downloadExport('sites')}>
-                {t('exportSelectedSites')}
-              </button>
-              <div className="checkbox-list">
-                {tags.map((tag) => (
-                  <label key={tag.id}>
-                    <input
-                      type="checkbox"
-                      checked={exportTagSet.has(tag.id)}
-                      onChange={() => toggleString(exportTagIds, tag.id, setExportTagIds)}
-                    />
-                    <span>{tag.name}</span>
-                  </label>
-                ))}
+              <div className="export-scope" role="group" aria-label={t('exportScope')}>
+                <button
+                  className={exportMode === 'all' ? 'active' : undefined}
+                  type="button"
+                  onClick={() => setExportMode('all')}
+                >
+                  {t('exportScopeAll')}
+                </button>
+                <button
+                  className={exportMode === 'sites' ? 'active' : undefined}
+                  type="button"
+                  onClick={() => setExportMode('sites')}
+                >
+                  {t('exportScopeSites')}
+                </button>
+                <button
+                  className={exportMode === 'tags' ? 'active' : undefined}
+                  type="button"
+                  onClick={() => setExportMode('tags')}
+                >
+                  {t('exportScopeTags')}
+                </button>
               </div>
-              <button type="button" onClick={() => downloadExport('tags')}>
-                {t('exportSelectedTags')}
+
+              {exportMode === 'sites' && (
+                <div className="export-picker">
+                  <div className="export-picker-header">
+                    <strong>{t('siteSelection')}</strong>
+                    <span>{t('selectedCount', { count: exportSiteIds.length })}</span>
+                    <div className="export-picker-actions">
+                      <button type="button" onClick={() => setExportSiteIds(sites.map((site) => site.id))}>
+                        {t('selectAll')}
+                      </button>
+                      <button type="button" onClick={() => setExportSiteIds([])}>
+                        {t('clearSelection')}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="export-list">
+                    {sites.map((site) => (
+                      <label className="export-option" key={site.id}>
+                        <input
+                          type="checkbox"
+                          checked={exportSiteSet.has(site.id)}
+                          onChange={() => toggleString(exportSiteIds, site.id, setExportSiteIds)}
+                        />
+                        <span className="export-option-main">
+                          <strong>{site.title}</strong>
+                          <span>{site.default_url}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {exportMode === 'tags' && (
+                <div className="export-picker">
+                  <div className="export-picker-header">
+                    <strong>{t('tagSelection')}</strong>
+                    <span>{t('selectedCount', { count: exportTagIds.length })}</span>
+                    <div className="export-picker-actions">
+                      <button type="button" onClick={() => setExportTagIds(tags.map((tag) => tag.id))}>
+                        {t('selectAll')}
+                      </button>
+                      <button type="button" onClick={() => setExportTagIds([])}>
+                        {t('clearSelection')}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="checkbox-list">
+                    {tags.map((tag) => (
+                      <label key={tag.id}>
+                        <input
+                          type="checkbox"
+                          checked={exportTagSet.has(tag.id)}
+                          onChange={() => toggleString(exportTagIds, tag.id, setExportTagIds)}
+                        />
+                        <span>{tag.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button className="primary-button" type="button" onClick={() => downloadExport(exportMode)}>
+                <Download size={17} aria-hidden="true" />
+                {t('exportNow')}
               </button>
             </div>
           </div>

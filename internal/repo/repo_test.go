@@ -3,13 +3,17 @@ package repo
 import (
 	"context"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
+
+	"navbox/internal/model"
 )
 
 func newMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
@@ -42,6 +46,35 @@ func TestSiteRepoCount(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, int64(2), count)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplySiteFilterTagMatch(t *testing.T) {
+	db, mock := newMockDB(t)
+	tagIDs := []uuid.UUID{uuid.New(), uuid.New()}
+
+	tests := []struct {
+		name       string
+		tagMatch   string
+		wantHaving bool
+	}{
+		{name: "all", tagMatch: SiteTagMatchAll, wantHaving: true},
+		{name: "empty defaults to all", tagMatch: "", wantHaving: true},
+		{name: "any", tagMatch: SiteTagMatchAny, wantHaving: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var sites []model.Site
+			query := db.Session(&gorm.Session{DryRun: true}).Model(&model.Site{})
+			stmt := applySiteFilter(query, SiteListFilter{TagIDs: tagIDs, TagMatch: tt.tagMatch}).Find(&sites).Statement
+			sql := stmt.SQL.String()
+			hasHaving := strings.Contains(sql, "HAVING COUNT(DISTINCT tag_id) =")
+
+			require.Equal(t, tt.wantHaving, hasHaving)
+		})
+	}
+
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

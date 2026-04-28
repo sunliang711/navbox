@@ -35,9 +35,10 @@ func (h *SiteHandler) RegisterAdminRoutes(rg *gin.RouterGroup) {
 
 func (h *SiteHandler) ListSites(c *gin.Context) {
 	sites, err := h.service.ListSites(c.Request.Context(), dto.SiteListQuery{
-		Search: c.Query("search"),
-		TagIDs: parseQueryIDs(c, "tag_ids"),
-		View:   c.Query("view"),
+		Search:   c.Query("search"),
+		TagIDs:   parseQueryIDs(c, "tag_ids"),
+		TagMatch: c.Query("tag_match"),
+		View:     c.Query("view"),
 	})
 	if err != nil {
 		writeServiceError(c, err)
