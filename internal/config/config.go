@@ -69,6 +69,7 @@ type UploadConfig struct {
 
 type IconFetchConfig struct {
 	AllowedPrivateCIDRs string `mapstructure:"allowed_private_cidrs"`
+	SkipTLSVerify       bool   `mapstructure:"skip_tls_verify"`
 }
 
 func Load() (Config, error) {
@@ -121,6 +122,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("upload.dir", "./data/uploads")
 	v.SetDefault("upload.max_bytes", 1048576)
 	v.SetDefault("icon_fetch.allowed_private_cidrs", "")
+	v.SetDefault("icon_fetch.skip_tls_verify", false)
 }
 
 func (c Config) Validate() error {

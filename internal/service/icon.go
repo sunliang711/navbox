@@ -24,6 +24,7 @@ type iconService struct {
 	repo                repo.IconRepo
 	store               *storage.IconStore
 	allowedPrivateCIDRs []netip.Prefix
+	skipTLSVerify       bool
 }
 
 func NewIconService(cfg config.Config, repo repo.IconRepo, store *storage.IconStore) (IconService, error) {
@@ -31,7 +32,12 @@ func NewIconService(cfg config.Config, repo repo.IconRepo, store *storage.IconSt
 	if err != nil {
 		return nil, err
 	}
-	return &iconService{repo: repo, store: store, allowedPrivateCIDRs: allowedPrivateCIDRs}, nil
+	return &iconService{
+		repo:                repo,
+		store:               store,
+		allowedPrivateCIDRs: allowedPrivateCIDRs,
+		skipTLSVerify:       cfg.IconFetch.SkipTLSVerify,
+	}, nil
 }
 
 func (s *iconService) UploadIcon(ctx context.Context, file multipart.File) (*dto.IconResp, error) {

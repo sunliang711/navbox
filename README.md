@@ -46,6 +46,7 @@ services:
       NAVBOX_UPLOAD_DIR: "/app/data/uploads"
       NAVBOX_AUTH_SESSION_TTL: "24h"
       NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+      NAVBOX_ICON_FETCH_SKIP_TLS_VERIFY: ${NAVBOX_ICON_FETCH_SKIP_TLS_VERIFY:-false}
     ports:
       - "8037:8037"
     volumes:
@@ -116,6 +117,7 @@ docker compose build navbox
 | `NAVBOX_RESTORE_MODE` | 忘记 admin 密码时临时设置为 `admin-password` | `admin-password` |
 | `NAVBOX_RESTORE_TOKEN` | 恢复模式使用的一次性 Token，启动后 5 分钟内有效 | `openssl rand -hex 32` |
 | `NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS` | 允许获取 icon 的内网 CIDR 白名单 | `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16` |
+| `NAVBOX_ICON_FETCH_SKIP_TLS_VERIFY` | 获取 icon 时是否跳过 HTTPS 证书校验，内网自签证书站点可临时开启 | `false` |
 
 运行时目录：
 

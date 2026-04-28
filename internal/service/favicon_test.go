@@ -2,6 +2,7 @@ package service
 
 import (
 	"net"
+	"net/http"
 	"net/netip"
 	"net/url"
 	"strings"
@@ -79,6 +80,33 @@ func TestIsAllowedFetchIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, isAllowedFetchIP(net.ParseIP(tt.ip), tt.allowed))
+		})
+	}
+}
+
+func TestNewRestrictedHTTPClientTLSVerifyConfig(t *testing.T) {
+	tests := []struct {
+		name string
+		skip bool
+		want bool
+	}{
+		{name: "default verify tls", skip: false, want: false},
+		{name: "skip tls verify", skip: true, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newRestrictedHTTPClient(nil, tt.skip)
+			transport, ok := client.Transport.(*http.Transport)
+			require.True(t, ok)
+			if tt.want {
+				require.NotNil(t, transport.TLSClientConfig)
+				require.True(t, transport.TLSClientConfig.InsecureSkipVerify)
+				return
+			}
+			if transport.TLSClientConfig != nil {
+				require.False(t, transport.TLSClientConfig.InsecureSkipVerify)
+			}
 		})
 	}
 }

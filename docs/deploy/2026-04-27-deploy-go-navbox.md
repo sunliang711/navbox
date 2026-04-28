@@ -18,6 +18,7 @@
 | `NAVBOX_RESTORE_MODE` | admin 密码恢复模式，临时设置为 `admin-password` | `admin-password` | 否 | navbox |
 | `NAVBOX_RESTORE_TOKEN` | admin 密码恢复一次性 Token，启动后 5 分钟内有效 | `openssl rand -hex 32` | 是 | navbox |
 | `NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS` | 允许获取 icon 的内网 CIDR 白名单 | `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16` | 否 | navbox |
+| `NAVBOX_ICON_FETCH_SKIP_TLS_VERIFY` | 获取 icon 时是否跳过 HTTPS 证书校验，内网自签证书站点可临时开启 | `false` | 否 | navbox |
 | `POSTGRES_DB` | PostgreSQL 数据库名 | `navbox` | 否 | postgres |
 | `POSTGRES_USER` | PostgreSQL 用户名 | `navbox` | 否 | postgres |
 | `POSTGRES_PASSWORD` | PostgreSQL 密码 | `navbox` | 是 | postgres |
@@ -42,6 +43,7 @@
 | `upload.dir` | `./data/uploads` | icon 文件目录 | 是 |
 | `upload.max_bytes` | `1048576` | 单个 icon 最大字节数 | 是 |
 | `icon_fetch.allowed_private_cidrs` | 空字符串 | 允许获取 icon 的内网 CIDR 白名单 | 是 |
+| `icon_fetch.skip_tls_verify` | `false` | 获取 icon 时是否跳过 HTTPS 证书校验 | 是 |
 
 ## 三、依赖与中间件变更
 

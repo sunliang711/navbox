@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -34,7 +35,7 @@ func (s *iconService) FetchIcon(ctx context.Context, websiteURL string) (*dto.Ic
 	fetchCtx, cancel := context.WithTimeout(ctx, faviconFetchTimeout)
 	defer cancel()
 
-	client := newRestrictedHTTPClient(s.allowedPrivateCIDRs)
+	client := newRestrictedHTTPClient(s.allowedPrivateCIDRs, s.skipTLSVerify)
 	candidates := loadIconCandidates(fetchCtx, client, baseURL)
 	for _, candidate := range candidates {
 		icon, err := s.fetchAndStoreIcon(fetchCtx, client, candidate)
@@ -196,8 +197,12 @@ func validateFetchURL(parsed *url.URL) error {
 	}
 }
 
-func newRestrictedHTTPClient(allowedPrivateCIDRs []netip.Prefix) *http.Client {
+func newRestrictedHTTPClient(allowedPrivateCIDRs []netip.Prefix, skipTLSVerify bool) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if skipTLSVerify {
+		// #nosec G402 -- 仅在用户显式开启 icon_fetch.skip_tls_verify 时跳过证书校验。
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
 	dialer := &net.Dialer{Timeout: faviconFetchTimeout}
 	transport.DialContext = func(ctx context.Context, network string, address string) (net.Conn, error) {
 		return restrictedDialContext(ctx, dialer, network, address, allowedPrivateCIDRs)
