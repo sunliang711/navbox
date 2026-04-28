@@ -38,6 +38,7 @@ func Run() {
 			handler.NewHealthHandler,
 			handler.NewIconHandler,
 			handler.NewImportExportHandler,
+			handler.NewRestoreHandler,
 			handler.NewSiteHandler,
 			handler.NewTagHandler,
 			web.NewAssets,

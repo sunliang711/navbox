@@ -15,6 +15,8 @@
 | `NAVBOX_DATABASE_DSN` | PostgreSQL 连接串 | `host=postgres user=navbox password=navbox dbname=navbox port=5432 sslmode=disable TimeZone=UTC` | 是 | navbox |
 | `NAVBOX_UPLOAD_DIR` | icon 上传目录 | `/app/data/uploads` | 否 | navbox |
 | `NAVBOX_AUTH_SESSION_TTL` | admin Session 有效期 | `24h` | 否 | navbox |
+| `NAVBOX_RESTORE_MODE` | admin 密码恢复模式，临时设置为 `admin-password` | `admin-password` | 否 | navbox |
+| `NAVBOX_RESTORE_TOKEN` | admin 密码恢复一次性 Token，启动后 5 分钟内有效 | `openssl rand -hex 32` | 是 | navbox |
 | `NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS` | 允许获取 icon 的内网 CIDR 白名单 | `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16` | 否 | navbox |
 | `POSTGRES_DB` | PostgreSQL 数据库名 | `navbox` | 否 | postgres |
 | `POSTGRES_USER` | PostgreSQL 用户名 | `navbox` | 否 | postgres |
@@ -35,6 +37,8 @@
 | `auth.cookie_name` | `navbox_admin_session` | Session Cookie 名称 | 否 |
 | `auth.cookie_secure` | `false` | Cookie Secure 标记 | 生产 HTTPS 建议开启 |
 | `auth.initial_password_length` | `16` | 初始密码长度 | 否 |
+| `restore.mode` | 空字符串 | admin 密码恢复模式，忘记密码时临时设置为 `admin-password` | 否 |
+| `restore.token` | 空字符串 | admin 密码恢复一次性 Token，启动后 5 分钟内有效 | 是 |
 | `upload.dir` | `./data/uploads` | icon 文件目录 | 是 |
 | `upload.max_bytes` | `1048576` | 单个 icon 最大字节数 | 是 |
 | `icon_fetch.allowed_private_cidrs` | 空字符串 | 允许获取 icon 的内网 CIDR 白名单 | 是 |
@@ -89,6 +93,18 @@ docker compose logs -f navbox
 ```
 
 7. 打开 `http://localhost:8037/admin` 登录，并修改 admin 密码。
+
+### admin 密码恢复
+
+忘记 admin 密码时，临时启用恢复模式：
+
+```bash
+RESTORE_TOKEN="$(openssl rand -hex 32)"
+NAVBOX_RESTORE_MODE=admin-password NAVBOX_RESTORE_TOKEN="${RESTORE_TOKEN}" docker compose up -d
+echo "Restore Token: ${RESTORE_TOKEN}"
+```
+
+访问 `http://localhost:8037/admin`，输入 Restore Token 和新密码完成重置。重置成功后删除 `NAVBOX_RESTORE_MODE`、`NAVBOX_RESTORE_TOKEN` 并重启服务。
 
 ## 六、验证清单
 

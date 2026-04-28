@@ -16,10 +16,12 @@ type AuthRepo interface {
 	GetAdminSetting(ctx context.Context) (*model.AdminSetting, error)
 	SaveAdminSetting(ctx context.Context, setting *model.AdminSetting) error
 	UpdateAdminPasswordHash(ctx context.Context, passwordHash string) error
+	ResetAdminPassword(ctx context.Context, setting *model.AdminSetting) error
 	CreateSession(ctx context.Context, session *model.AdminSession) error
 	GetSessionByTokenHash(ctx context.Context, tokenHash string, now time.Time) (*model.AdminSession, error)
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
 	DeleteSessionsExcept(ctx context.Context, tokenHash string) error
+	DeleteAllSessions(ctx context.Context) error
 	DeleteExpiredSessions(ctx context.Context, now time.Time) error
 }
 
@@ -71,6 +73,24 @@ func (r *authRepo) UpdateAdminPasswordHash(ctx context.Context, passwordHash str
 	return nil
 }
 
+func (r *authRepo) ResetAdminPassword(ctx context.Context, setting *model.AdminSetting) error {
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			UpdateAll: true,
+		}).Create(setting).Error; err != nil {
+			return fmt.Errorf("save admin setting: %w", err)
+		}
+		if err := tx.Where("1 = 1").Delete(&model.AdminSession{}).Error; err != nil {
+			return fmt.Errorf("delete all admin sessions: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("reset admin password: %w", err)
+	}
+	return nil
+}
+
 func (r *authRepo) CreateSession(ctx context.Context, session *model.AdminSession) error {
 	if err := r.db.WithContext(ctx).Create(session).Error; err != nil {
 		return fmt.Errorf("create admin session: %w", err)
@@ -105,6 +125,15 @@ func (r *authRepo) DeleteSessionsExcept(ctx context.Context, tokenHash string) e
 		Where("token_hash <> ?", tokenHash).
 		Delete(&model.AdminSession{}).Error; err != nil {
 		return fmt.Errorf("delete other admin sessions: %w", err)
+	}
+	return nil
+}
+
+func (r *authRepo) DeleteAllSessions(ctx context.Context) error {
+	if err := r.db.WithContext(ctx).
+		Where("1 = 1").
+		Delete(&model.AdminSession{}).Error; err != nil {
+		return fmt.Errorf("delete all admin sessions: %w", err)
 	}
 	return nil
 }

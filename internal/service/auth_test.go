@@ -41,6 +41,11 @@ func (r *fakeAuthRepo) UpdateAdminPasswordHash(ctx context.Context, passwordHash
 	return nil
 }
 
+func (r *fakeAuthRepo) ResetAdminPassword(ctx context.Context, setting *model.AdminSetting) error {
+	r.setting = setting
+	return r.DeleteAllSessions(ctx)
+}
+
 func (r *fakeAuthRepo) CreateSession(ctx context.Context, session *model.AdminSession) error {
 	r.sessions[session.TokenHash] = session
 	return nil
@@ -64,6 +69,13 @@ func (r *fakeAuthRepo) DeleteSessionsExcept(ctx context.Context, tokenHash strin
 		if key != tokenHash {
 			delete(r.sessions, key)
 		}
+	}
+	return nil
+}
+
+func (r *fakeAuthRepo) DeleteAllSessions(ctx context.Context) error {
+	for key := range r.sessions {
+		delete(r.sessions, key)
 	}
 	return nil
 }
@@ -154,4 +166,48 @@ func TestAuthServiceChangePassword(t *testing.T) {
 
 	_, err = svc.Login(context.Background(), "new-password")
 	require.NoError(t, err)
+}
+
+func TestAuthServiceResetPassword(t *testing.T) {
+	passwordHash, err := hashPassword("old-password")
+	require.NoError(t, err)
+
+	repo := newFakeAuthRepo()
+	repo.setting = &model.AdminSetting{
+		ID:           adminSettingID,
+		PasswordHash: passwordHash,
+		Initialized:  true,
+	}
+	svc := NewAuthService(AuthServiceParams{
+		Lifecycle: fakeLifecycle{},
+		Config:    testAuthConfig(),
+		Logger:    zerolog.Nop(),
+		Repo:      repo,
+	})
+
+	result, err := svc.Login(context.Background(), "old-password")
+	require.NoError(t, err)
+	require.NotEmpty(t, repo.sessions)
+
+	require.NoError(t, svc.ResetPassword(context.Background(), "new-password"))
+	require.Empty(t, repo.sessions)
+
+	_, err = svc.Login(context.Background(), "old-password")
+	require.ErrorIs(t, err, ErrInvalidCredentials)
+
+	_, err = svc.Login(context.Background(), "new-password")
+	require.NoError(t, err)
+	require.ErrorIs(t, svc.ValidateSession(context.Background(), result.Token), ErrUnauthenticated)
+}
+
+func TestAuthServiceResetPasswordRejectsWeakPassword(t *testing.T) {
+	svc := NewAuthService(AuthServiceParams{
+		Lifecycle: fakeLifecycle{},
+		Config:    testAuthConfig(),
+		Logger:    zerolog.Nop(),
+		Repo:      newFakeAuthRepo(),
+	})
+
+	err := svc.ResetPassword(context.Background(), "short")
+	require.ErrorIs(t, err, ErrWeakPassword)
 }

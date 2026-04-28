@@ -68,6 +68,8 @@ docker compose build navbox
 | `NAVBOX_DATABASE_DSN` | PostgreSQL DSN | `host=postgres user=navbox password=navbox dbname=navbox port=5432 sslmode=disable TimeZone=UTC` |
 | `NAVBOX_UPLOAD_DIR` | icon 上传目录 | `/app/data/uploads` |
 | `NAVBOX_AUTH_SESSION_TTL` | admin Session 有效期 | `24h` |
+| `NAVBOX_RESTORE_MODE` | 忘记 admin 密码时临时设置为 `admin-password` | `admin-password` |
+| `NAVBOX_RESTORE_TOKEN` | 恢复模式使用的一次性 Token，启动后 5 分钟内有效 | `openssl rand -hex 32` |
 | `NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS` | 允许获取 icon 的内网 CIDR 白名单 | `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16` |
 
 运行时目录：
@@ -87,6 +89,17 @@ icons/
 ```
 
 导入时遇到冲突数据会跳过并返回报告，不覆盖已有数据。
+
+## admin 密码恢复
+
+忘记 admin 密码时，可以临时启用恢复模式：
+
+```bash
+RESTORE_TOKEN="$(openssl rand -hex 32)"
+NAVBOX_RESTORE_MODE=admin-password NAVBOX_RESTORE_TOKEN="${RESTORE_TOKEN}" ./navbox
+```
+
+Docker Compose 场景可把 `NAVBOX_RESTORE_MODE=admin-password` 和 `NAVBOX_RESTORE_TOKEN=<token>` 临时加入 `navbox` 服务环境变量后重启。然后访问 `/admin`，页面会切换为密码恢复表单。重置成功后删除这两个恢复配置并重启服务。
 
 ## 验证命令
 

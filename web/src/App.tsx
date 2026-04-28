@@ -1,4 +1,6 @@
 import {
+  ArrowRight,
+  ExternalLink,
   Heart,
   Loader2,
   Search,
@@ -12,6 +14,8 @@ import './styles.css';
 import type { RecentSite, Site, Tag } from './types';
 
 type ViewMode = 'all' | 'favorite' | 'recent';
+
+const preferLanKey = 'navbox_prefer_lan';
 
 export function App() {
   if (window.location.pathname.startsWith('/admin')) {
@@ -28,6 +32,7 @@ function VisitorApp() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [view, setView] = useState<ViewMode>('all');
+  const [preferLan, setPreferLan] = useState(() => loadPreferLan());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
@@ -106,6 +111,14 @@ function VisitorApp() {
   const selectedTagSet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
   const displaySites = view === 'recent' ? filterRecentSites(recentSites, search) : sites;
 
+  function togglePreferLan() {
+    setPreferLan((current) => {
+      const next = !current;
+      savePreferLan(next);
+      return next;
+    });
+  }
+
   function toggleTag(tagId: string) {
     setView('all');
     setSelectedTagIds((current) =>
@@ -120,7 +133,8 @@ function VisitorApp() {
     }
   }
 
-  function openSite(site: Site, url: string) {
+  function openSite(site: Site) {
+    const url = getSiteURL(site, preferLan);
     if (!url) {
       return;
     }
@@ -188,6 +202,10 @@ function VisitorApp() {
               最近访问
             </button>
             <a className="filter-pill admin-pill" href="/admin">管理后台</a>
+            <label className={preferLan ? 'lan-toggle active' : 'lan-toggle'}>
+              <input type="checkbox" checked={preferLan} onChange={togglePreferLan} />
+              <span>内网优先</span>
+            </label>
           </nav>
         </header>
 
@@ -214,7 +232,7 @@ function VisitorApp() {
           {!loading && !error && displaySites.length > 0 && (
             <div className="site-grid">
               {displaySites.map((site) => (
-                <SiteCard key={site.id} site={site} onOpen={openSite} />
+                <SiteCard key={site.id} site={site} preferLan={preferLan} onOpen={openSite} />
               ))}
             </div>
           )}
@@ -226,21 +244,40 @@ function VisitorApp() {
 
 function SiteCard({
   site,
+  preferLan,
   onOpen
 }: {
   site: Site;
-  onOpen: (site: Site, url: string) => void;
+  preferLan: boolean;
+  onOpen: (site: Site) => void;
 }) {
   const primaryTag = site.tags[0];
+  const opensInNewTab = site.open_method === 'new_window';
+  const hasLanURL = site.lan_url.trim() !== '';
+  const usingLanURL = preferLan && hasLanURL;
 
   return (
-    <button className="site-card" type="button" onClick={() => onOpen(site, site.default_url)}>
+    <button className="site-card" type="button" onClick={() => onOpen(site)}>
       <div className="site-main">
         <SiteIcon site={site} />
         <div className="site-copy">
           <div className="site-title-row">
             <h2>{site.title}</h2>
+          </div>
+          <div className="site-meta-row">
             {primaryTag && <span className="site-tag">{primaryTag.name}</span>}
+            {hasLanURL && (
+              <span className={usingLanURL ? 'site-tag lan-tag active' : 'site-tag lan-tag'}>LAN</span>
+            )}
+            {opensInNewTab ? (
+              <span className="open-method-icon" title="新标签页打开" aria-label="新标签页打开" role="img">
+                <ExternalLink size={15} aria-hidden="true" />
+              </span>
+            ) : (
+              <span className="open-method-icon" title="当前页打开" aria-label="当前页打开" role="img">
+                <ArrowRight size={15} aria-hidden="true" />
+              </span>
+            )}
             {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label="常用" />}
           </div>
           {!site.only_name && site.description && <p>{site.description}</p>}
@@ -275,4 +312,27 @@ function filterRecentSites(sites: RecentSite[], search: string): RecentSite[] {
       .toLowerCase()
       .includes(keyword);
   });
+}
+
+function getSiteURL(site: Site, preferLan: boolean): string {
+  if (preferLan && site.lan_url.trim()) {
+    return site.lan_url;
+  }
+  return site.default_url;
+}
+
+function loadPreferLan(): boolean {
+  try {
+    return window.localStorage.getItem(preferLanKey) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function savePreferLan(value: boolean) {
+  try {
+    window.localStorage.setItem(preferLanKey, String(value));
+  } catch {
+    // localStorage 不可用时只保留当前会话状态。
+  }
 }

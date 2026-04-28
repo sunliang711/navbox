@@ -39,6 +39,7 @@ type AuthService interface {
 	ValidateSession(ctx context.Context, token string) error
 	Logout(ctx context.Context, token string) error
 	ChangePassword(ctx context.Context, token string, currentPassword string, newPassword string) error
+	ResetPassword(ctx context.Context, newPassword string) error
 }
 
 type LoginResult struct {
@@ -192,6 +193,25 @@ func (s *authService) ChangePassword(ctx context.Context, token string, currentP
 		return err
 	}
 	if err := s.repo.DeleteSessionsExcept(ctx, tokenHash); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *authService) ResetPassword(ctx context.Context, newPassword string) error {
+	if len(newPassword) < minAdminPasswordBytes {
+		return ErrWeakPassword
+	}
+
+	passwordHash, err := hashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.ResetAdminPassword(ctx, &model.AdminSetting{
+		ID:           adminSettingID,
+		PasswordHash: passwordHash,
+		Initialized:  true,
+	}); err != nil {
 		return err
 	}
 	return nil

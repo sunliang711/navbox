@@ -23,6 +23,10 @@ cookie_name = "navbox_admin_session"
 cookie_secure = false
 initial_password_length = 16
 
+[restore]
+mode = ""
+token = ""
+
 [upload]
 dir = "./data/uploads"
 max_bytes = 1048576

@@ -53,6 +53,15 @@ export type SessionResp = {
   authenticated: boolean;
 };
 
+export type RestoreStatus = {
+  enabled: boolean;
+  mode: string;
+};
+
+export type RestorePasswordResp = {
+  restored: boolean;
+};
+
 export type SiteSaveReq = {
   title: string;
   description: string;

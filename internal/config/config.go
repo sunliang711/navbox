@@ -10,12 +10,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+const RestoreModeAdminPassword = "admin-password"
+
 type Config struct {
 	App       AppConfig       `mapstructure:"app"`
 	HTTP      HTTPConfig      `mapstructure:"http"`
 	Log       LogConfig       `mapstructure:"log"`
 	Database  DatabaseConfig  `mapstructure:"database"`
 	Auth      AuthConfig      `mapstructure:"auth"`
+	Restore   RestoreConfig   `mapstructure:"restore"`
 	Upload    UploadConfig    `mapstructure:"upload"`
 	IconFetch IconFetchConfig `mapstructure:"icon_fetch"`
 }
@@ -48,6 +51,15 @@ type AuthConfig struct {
 	CookieName            string `mapstructure:"cookie_name"`
 	CookieSecure          bool   `mapstructure:"cookie_secure"`
 	InitialPasswordLength int    `mapstructure:"initial_password_length"`
+}
+
+type RestoreConfig struct {
+	Mode  string `mapstructure:"mode"`
+	Token string `mapstructure:"token"`
+}
+
+func (c RestoreConfig) Enabled() bool {
+	return c.Mode == RestoreModeAdminPassword
 }
 
 type UploadConfig struct {
@@ -104,6 +116,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("auth.cookie_name", "navbox_admin_session")
 	v.SetDefault("auth.cookie_secure", false)
 	v.SetDefault("auth.initial_password_length", 16)
+	v.SetDefault("restore.mode", "")
+	v.SetDefault("restore.token", "")
 	v.SetDefault("upload.dir", "./data/uploads")
 	v.SetDefault("upload.max_bytes", 1048576)
 	v.SetDefault("icon_fetch.allowed_private_cidrs", "")
@@ -151,6 +165,12 @@ func (c Config) Validate() error {
 	}
 	if c.Auth.InitialPasswordLength < 16 {
 		return errors.New("auth initial_password_length must be at least 16")
+	}
+	if c.Restore.Mode != "" && c.Restore.Mode != RestoreModeAdminPassword {
+		return fmt.Errorf("restore mode must be empty or %q", RestoreModeAdminPassword)
+	}
+	if c.Restore.Enabled() && len(strings.TrimSpace(c.Restore.Token)) < 32 {
+		return errors.New("restore token must be configured with at least 32 characters when restore mode is enabled")
 	}
 	if c.Upload.Dir == "" {
 		return errors.New("upload dir is required")

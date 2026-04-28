@@ -28,11 +28,13 @@ import {
   exportConfig,
   fetchWebsiteIcon,
   getAdminSession,
+  getRestoreStatus,
   importConfig,
   listSites,
   listTags,
   loginAdmin,
   logoutAdmin,
+  restoreAdminPassword,
   setDefaultTag,
   updateSite,
   updateSiteOrder,
@@ -70,6 +72,7 @@ const emptyTagForm: TagSaveReq = {
 export function AdminApp() {
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
+  const [restoreMode, setRestoreMode] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [tab, setTab] = useState<AdminTab>('sites');
@@ -91,10 +94,26 @@ export function AdminApp() {
   const [tagOrder, setTagOrder] = useState<Record<string, number>>({});
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '' });
+  const [restoreForm, setRestoreForm] = useState({ token: '', next: '', confirm: '' });
+  const [restoreNotice, setRestoreNotice] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     async function checkSession() {
+      try {
+        const restoreStatus = await getRestoreStatus();
+        if (!cancelled && restoreStatus.enabled && restoreStatus.mode === 'admin-password') {
+          setRestoreMode(true);
+          setAuthenticated(false);
+          setChecking(false);
+          return;
+        }
+      } catch {
+        if (!cancelled) {
+          setRestoreMode(false);
+        }
+      }
+
       try {
         await getAdminSession();
         if (!cancelled) {
@@ -373,6 +392,28 @@ export function AdminApp() {
     setNotice('密码已修改');
   }
 
+  async function submitRestorePassword(event: FormEvent) {
+    event.preventDefault();
+    setLoginError('');
+    setRestoreNotice('');
+    if (restoreForm.next.length < 8) {
+      setLoginError('新密码至少 8 位');
+      return;
+    }
+    if (restoreForm.next !== restoreForm.confirm) {
+      setLoginError('两次输入的新密码不一致');
+      return;
+    }
+
+    try {
+      await restoreAdminPassword(restoreForm.token, restoreForm.next);
+      setRestoreForm({ token: '', next: '', confirm: '' });
+      setRestoreNotice('管理员密码已重置。请关闭恢复模式并重启服务后登录。');
+    } catch {
+      setLoginError('Restore Token 无效、已过期或已使用');
+    }
+  }
+
   function toggleSiteSelection(id: string) {
     setSelectedSiteIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
@@ -383,6 +424,55 @@ export function AdminApp() {
 
   if (checking) {
     return <AdminState text="正在检查 Session" />;
+  }
+
+  if (restoreMode) {
+    return (
+      <main className="admin-login">
+        <form className="login-panel restore-panel" onSubmit={submitRestorePassword}>
+          <div className="login-mark">
+            <KeyRound size={26} aria-hidden="true" />
+          </div>
+          <h1>恢复管理员密码</h1>
+          <p className="form-note">恢复模式已启用。输入启动时配置的 Restore Token，并设置新的管理员密码。</p>
+          <label>
+            <span>Restore Token</span>
+            <input
+              type="password"
+              value={restoreForm.token}
+              onChange={(event) => setRestoreForm({ ...restoreForm, token: event.target.value })}
+              autoFocus
+              required
+            />
+          </label>
+          <label>
+            <span>新密码</span>
+            <input
+              type="password"
+              value={restoreForm.next}
+              onChange={(event) => setRestoreForm({ ...restoreForm, next: event.target.value })}
+              required
+            />
+          </label>
+          <label>
+            <span>确认新密码</span>
+            <input
+              type="password"
+              value={restoreForm.confirm}
+              onChange={(event) => setRestoreForm({ ...restoreForm, confirm: event.target.value })}
+              required
+            />
+          </label>
+          {loginError && <p className="form-error">{loginError}</p>}
+          {restoreNotice && <p className="form-success">{restoreNotice}</p>}
+          <button className="primary-button" type="submit">
+            <Save size={17} aria-hidden="true" />
+            重置密码
+          </button>
+          <p className="form-note">重置成功后需要删除恢复配置并重启服务，正常管理接口才会重新开放。</p>
+        </form>
+      </main>
+    );
   }
 
   if (!authenticated) {
@@ -473,6 +563,7 @@ export function AdminApp() {
                   <th>选择</th>
                   <th>网站</th>
                   <th>Tag</th>
+                  <th>打开方式</th>
                   <th>常用</th>
                   <th>排序</th>
                   <th>操作</th>
@@ -494,6 +585,7 @@ export function AdminApp() {
                       <span>{site.default_url}</span>
                     </td>
                     <td>{site.tags.map((tag) => tag.name).join(', ') || '未分类'}</td>
+                    <td>{formatOpenMethod(site.open_method)}</td>
                     <td>{site.is_favorite ? '是' : '否'}</td>
                     <td>
                       <input
@@ -923,4 +1015,8 @@ function AdminState({ text }: { text: string }) {
 
 function toOrderItems(values: Record<string, number>): OrderItem[] {
   return Object.entries(values).map(([id, sortOrder]) => ({ id, sort_order: Number(sortOrder) }));
+}
+
+function formatOpenMethod(value: string): string {
+  return value === 'current_window' ? '当前 Tab' : '新 Tab';
 }

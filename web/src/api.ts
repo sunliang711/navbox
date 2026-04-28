@@ -6,6 +6,8 @@ import type {
   ImportReport,
   OrderItem,
   PublicConfig,
+  RestorePasswordResp,
+  RestoreStatus,
   SessionResp,
   Site,
   SiteQuery,
@@ -72,6 +74,10 @@ export function getAdminSession(): Promise<SessionResp> {
   return request<SessionResp>('/api/v1/admin/session');
 }
 
+export function getRestoreStatus(): Promise<RestoreStatus> {
+  return request<RestoreStatus>('/api/v1/restore/status');
+}
+
 export function loginAdmin(password: string): Promise<SessionResp> {
   return jsonRequest<SessionResp>('/api/v1/admin/login', 'POST', { password });
 }
@@ -83,6 +89,13 @@ export function logoutAdmin(): Promise<SessionResp> {
 export function changeAdminPassword(currentPassword: string, newPassword: string): Promise<SessionResp> {
   return jsonRequest<SessionResp>('/api/v1/admin/password', 'POST', {
     current_password: currentPassword,
+    new_password: newPassword
+  });
+}
+
+export function restoreAdminPassword(restoreToken: string, newPassword: string): Promise<RestorePasswordResp> {
+  return jsonRequest<RestorePasswordResp>('/api/v1/restore/admin-password', 'POST', {
+    restore_token: restoreToken,
     new_password: newPassword
   });
 }
