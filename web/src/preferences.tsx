@@ -153,6 +153,7 @@ const zh = {
   chooseTags: '请先选择 Tag',
   exportStarted: '导出已开始',
   importDone: '导入已完成',
+  importFailed: '导入失败，请查看服务日志',
   passwordChanged: '密码已修改',
   sessionExpired: '登录状态已过期，请重新登录'
 } as const;
@@ -305,6 +306,7 @@ const en: Record<TranslationKey, string> = {
   chooseTags: 'Please choose tags first',
   exportStarted: 'Export started',
   importDone: 'Import completed',
+  importFailed: 'Import failed. Check service logs',
   passwordChanged: 'Password changed',
   sessionExpired: 'Your session has expired. Please log in again'
 };

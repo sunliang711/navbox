@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 
 	"navbox/internal/dto"
 	"navbox/internal/response"
@@ -14,10 +15,11 @@ import (
 
 type ImportExportHandler struct {
 	service service.ImportExportService
+	logger  zerolog.Logger
 }
 
-func NewImportExportHandler(service service.ImportExportService) *ImportExportHandler {
-	return &ImportExportHandler{service: service}
+func NewImportExportHandler(service service.ImportExportService, logger zerolog.Logger) *ImportExportHandler {
+	return &ImportExportHandler{service: service, logger: logger}
 }
 
 func (h *ImportExportHandler) RegisterAdminRoutes(rg *gin.RouterGroup) {
@@ -36,6 +38,7 @@ func (h *ImportExportHandler) Export(c *gin.Context) {
 
 	archive, err := h.service.Export(c.Request.Context(), req)
 	if err != nil {
+		h.logger.Error().Err(err).Msg("Export config failed")
 		writeServiceError(c, err)
 		return
 	}
@@ -67,6 +70,7 @@ func (h *ImportExportHandler) Import(c *gin.Context) {
 
 	report, err := h.service.Import(c.Request.Context(), file)
 	if err != nil {
+		h.logger.Error().Err(err).Msg("Import config failed")
 		writeServiceError(c, err)
 		return
 	}

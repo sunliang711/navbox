@@ -550,8 +550,10 @@ export function AdminApp() {
       await refreshData();
     } catch (error) {
       if (!handleAdminError(error)) {
-        throw error;
+        setNotice(t('importFailed'));
       }
+    } finally {
+      event.target.value = '';
     }
   }
 
