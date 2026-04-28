@@ -166,47 +166,52 @@ function VisitorApp() {
             )}
           </div>
 
-          <nav className="pill-nav" aria-label="Tag 筛选">
-            <button
-              className={view === 'all' && selectedTagIds.length === 0 ? 'filter-pill active' : 'filter-pill'}
-              type="button"
-              onClick={() => {
-                setSelectedTagIds([]);
-                setView('all');
-              }}
-            >
-              全部工具
-            </button>
-            {tags.map((tag) => (
+          <div className="filter-bar">
+            <nav className="pill-nav" aria-label="Tag 筛选">
               <button
-                className={selectedTagSet.has(tag.id) ? 'filter-pill active' : 'filter-pill'}
+                className={view === 'all' && selectedTagIds.length === 0 ? 'filter-pill active' : 'filter-pill'}
                 type="button"
-                key={tag.id}
-                onClick={() => toggleTag(tag.id)}
+                onClick={() => {
+                  setSelectedTagIds([]);
+                  setView('all');
+                }}
               >
-                {tag.name}
+                全部工具
               </button>
-            ))}
-            <button
-              className={view === 'favorite' ? 'filter-pill active' : 'filter-pill'}
-              type="button"
-              onClick={() => switchView('favorite')}
-            >
-              常用工具
-            </button>
-            <button
-              className={view === 'recent' ? 'filter-pill active' : 'filter-pill'}
-              type="button"
-              onClick={() => switchView('recent')}
-            >
-              最近访问
-            </button>
-            <a className="filter-pill admin-pill" href="/admin">管理后台</a>
+              {tags.map((tag) => (
+                <button
+                  className={selectedTagSet.has(tag.id) ? 'filter-pill active' : 'filter-pill'}
+                  type="button"
+                  key={tag.id}
+                  onClick={() => toggleTag(tag.id)}
+                >
+                  {tag.name}
+                </button>
+              ))}
+              <button
+                className={view === 'favorite' ? 'filter-pill active' : 'filter-pill'}
+                type="button"
+                onClick={() => switchView('favorite')}
+              >
+                常用工具
+              </button>
+              <button
+                className={view === 'recent' ? 'filter-pill active' : 'filter-pill'}
+                type="button"
+                onClick={() => switchView('recent')}
+              >
+                最近访问
+              </button>
+              <a className="filter-pill admin-pill" href="/admin">管理后台</a>
+            </nav>
             <label className={preferLan ? 'lan-toggle active' : 'lan-toggle'}>
               <input type="checkbox" checked={preferLan} onChange={togglePreferLan} />
+              <span className="toggle-track" aria-hidden="true">
+                <span className="toggle-thumb" />
+              </span>
               <span>内网优先</span>
             </label>
-          </nav>
+          </div>
         </header>
 
         <section className="site-area" aria-live="polite">
@@ -264,23 +269,30 @@ function SiteCard({
           <div className="site-title-row">
             <h2>{site.title}</h2>
           </div>
+          {!site.only_name && site.description && <p>{site.description}</p>}
           <div className="site-meta-row">
             {primaryTag && <span className="site-tag">{primaryTag.name}</span>}
             {hasLanURL && (
-              <span className={usingLanURL ? 'site-tag lan-tag active' : 'site-tag lan-tag'}>LAN</span>
-            )}
-            {opensInNewTab ? (
-              <span className="open-method-icon" title="新标签页打开" aria-label="新标签页打开" role="img">
-                <ExternalLink size={15} aria-hidden="true" />
-              </span>
-            ) : (
-              <span className="open-method-icon" title="当前页打开" aria-label="当前页打开" role="img">
-                <ArrowRight size={15} aria-hidden="true" />
+              <span
+                className={usingLanURL ? 'site-tag lan-tag active' : 'site-tag lan-tag'}
+                title={usingLanURL ? '当前使用 LAN URL' : '已配置 LAN URL'}
+              >
+                LAN
               </span>
             )}
-            {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label="常用" />}
           </div>
-          {!site.only_name && site.description && <p>{site.description}</p>}
+        </div>
+        <div className="site-card-tools">
+          {opensInNewTab ? (
+            <span className="open-method-icon" title="新标签页打开" aria-label="新标签页打开" role="img">
+              <ExternalLink size={15} aria-hidden="true" />
+            </span>
+          ) : (
+            <span className="open-method-icon" title="当前页打开" aria-label="当前页打开" role="img">
+              <ArrowRight size={15} aria-hidden="true" />
+            </span>
+          )}
+          {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label="常用" />}
         </div>
       </div>
     </button>
