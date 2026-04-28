@@ -6,7 +6,7 @@ import {
   Search,
   X
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { listSites, listTags } from './api';
 import { AdminApp } from './AdminApp';
 import { PreferenceControls, PreferencesProvider, usePreferences } from './preferences';
@@ -322,39 +322,81 @@ function SiteCard({
   const opensInNewTab = site.open_method === 'new_window';
   const hasLanURL = site.lan_url.trim() !== '';
   const usingLanURL = preferLan && hasLanURL;
+  const previewTimer = useRef<number | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const previewURL = getSiteURL(site, preferLan);
+  const canPreview = isPreviewableURL(previewURL);
+
+  useEffect(() => {
+    return () => {
+      if (previewTimer.current !== null) {
+        window.clearTimeout(previewTimer.current);
+      }
+    };
+  }, []);
+
+  function showSitePreview() {
+    if (!canPreview) {
+      return;
+    }
+    previewTimer.current = window.setTimeout(() => {
+      setShowPreview(true);
+    }, 350);
+  }
+
+  function hideSitePreview() {
+    if (previewTimer.current !== null) {
+      window.clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
+    setShowPreview(false);
+  }
 
   return (
-    <button className="site-card" type="button" onClick={() => onOpen(site)}>
-      <div className="site-main">
-        <SiteIcon site={site} />
-        <div className="site-copy">
-          <div className="site-title-row">
-            <h2>{site.title}</h2>
-            {hasLanURL && (
-              <span
-                className={usingLanURL ? 'site-network-badge active' : 'site-network-badge'}
-                title={usingLanURL ? t('usingLanURL') : t('hasLanURL')}
-              >
-                LAN
+    <div className="site-card-wrap" onMouseEnter={showSitePreview} onMouseLeave={hideSitePreview}>
+      <button className="site-card" type="button" onClick={() => onOpen(site)}>
+        <div className="site-main">
+          <SiteIcon site={site} />
+          <div className="site-copy">
+            <div className="site-title-row">
+              <h2>{site.title}</h2>
+              {hasLanURL && (
+                <span
+                  className={usingLanURL ? 'site-network-badge active' : 'site-network-badge'}
+                  title={usingLanURL ? t('usingLanURL') : t('hasLanURL')}
+                >
+                  LAN
+                </span>
+              )}
+            </div>
+            {!site.only_name && site.description && <p>{site.description}</p>}
+          </div>
+          <div className="site-card-tools">
+            {opensInNewTab ? (
+              <span className="open-method-icon" title={t('openNewTab')} aria-label={t('openNewTab')} role="img">
+                <ExternalLink size={15} aria-hidden="true" />
+              </span>
+            ) : (
+              <span className="open-method-icon" title={t('openCurrentTab')} aria-label={t('openCurrentTab')} role="img">
+                <ArrowRight size={15} aria-hidden="true" />
               </span>
             )}
+            {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label={t('favorite')} />}
           </div>
-          {!site.only_name && site.description && <p>{site.description}</p>}
         </div>
-        <div className="site-card-tools">
-          {opensInNewTab ? (
-            <span className="open-method-icon" title={t('openNewTab')} aria-label={t('openNewTab')} role="img">
-              <ExternalLink size={15} aria-hidden="true" />
-            </span>
-          ) : (
-            <span className="open-method-icon" title={t('openCurrentTab')} aria-label={t('openCurrentTab')} role="img">
-              <ArrowRight size={15} aria-hidden="true" />
-            </span>
-          )}
-          {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label={t('favorite')} />}
+      </button>
+      {showPreview && (
+        <div className="site-preview" aria-hidden="true">
+          <iframe
+            src={previewURL}
+            title={site.title}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            sandbox="allow-forms allow-same-origin allow-scripts"
+          />
         </div>
-      </div>
-    </button>
+      )}
+    </div>
   );
 }
 
@@ -390,6 +432,15 @@ function getSiteURL(site: Site, preferLan: boolean): string {
     return site.lan_url;
   }
   return site.default_url;
+}
+
+function isPreviewableURL(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 function loadVisitorQueryState(
