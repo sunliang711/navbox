@@ -2,6 +2,7 @@ import {
   Check,
   Download,
   FileUp,
+  GripVertical,
   KeyRound,
   LogIn,
   LogOut,
@@ -16,7 +17,7 @@ import {
   Upload,
   X
 } from 'lucide-react';
-import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, type DragEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   batchDeleteSites,
   batchUpdateSiteTags,
@@ -30,6 +31,7 @@ import {
   getAdminSession,
   getRestoreStatus,
   importConfig,
+  isUnauthorizedError,
   listSites,
   listTags,
   loginAdmin,
@@ -42,6 +44,7 @@ import {
   updateTagOrder,
   uploadIcon
 } from './api';
+import { PreferenceControls, usePreferences } from './preferences';
 import type { ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
 
 type AdminTab = 'sites' | 'tags' | 'io' | 'password';
@@ -70,6 +73,7 @@ const emptyTagForm: TagSaveReq = {
 };
 
 export function AdminApp() {
+  const { t } = usePreferences();
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
@@ -92,6 +96,8 @@ export function AdminApp() {
   const [tagPanelOpen, setTagPanelOpen] = useState(false);
   const [siteOrder, setSiteOrder] = useState<Record<string, number>>({});
   const [tagOrder, setTagOrder] = useState<Record<string, number>>({});
+  const [draggingSiteId, setDraggingSiteId] = useState('');
+  const [draggingTagId, setDraggingTagId] = useState('');
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '' });
   const [restoreForm, setRestoreForm] = useState({ token: '', next: '', confirm: '' });
@@ -154,6 +160,21 @@ export function AdminApp() {
   const batchTagSet = useMemo(() => new Set(batchTagIds), [batchTagIds]);
   const exportTagSet = useMemo(() => new Set(exportTagIds), [exportTagIds]);
 
+  function handleAdminError(error: unknown): boolean {
+    if (!isUnauthorizedError(error)) {
+      return false;
+    }
+    setAuthenticated(false);
+    setNotice('');
+    setLoginError(t('sessionExpired'));
+    setSitePanelOpen(false);
+    setTagPanelOpen(false);
+    setSelectedSiteIds([]);
+    setBatchTagIds([]);
+    setExportTagIds([]);
+    return true;
+  }
+
   async function refreshData() {
     setLoading(true);
     try {
@@ -162,6 +183,10 @@ export function AdminApp() {
       setTags(tagList);
       setSiteOrder(Object.fromEntries(siteList.map((site) => [site.id, site.sort_order])));
       setTagOrder(Object.fromEntries(tagList.map((tag) => [tag.id, tag.sort_order])));
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
     } finally {
       setLoading(false);
     }
@@ -175,12 +200,18 @@ export function AdminApp() {
       setAuthenticated(true);
       setPassword('');
     } catch {
-      setLoginError('密码错误或 Session 创建失败');
+      setLoginError(t('loginFailed'));
     }
   }
 
   async function handleLogout() {
-    await logoutAdmin();
+    try {
+      await logoutAdmin();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
     setAuthenticated(false);
   }
 
@@ -211,25 +242,37 @@ export function AdminApp() {
 
   async function submitSite(event: FormEvent) {
     event.preventDefault();
-    if (editingSiteId) {
-      await updateSite(editingSiteId, siteDraft);
-      setNotice('网站已更新');
-    } else {
-      await createSite(siteDraft);
-      setNotice('网站已创建');
+    try {
+      if (editingSiteId) {
+        await updateSite(editingSiteId, siteDraft);
+        setNotice(t('siteUpdated'));
+      } else {
+        await createSite(siteDraft);
+        setNotice(t('siteCreated'));
+      }
+      setSitePanelOpen(false);
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
     }
-    setSitePanelOpen(false);
-    await refreshData();
   }
 
   async function removeSite(id: string) {
-    if (!window.confirm('确认删除这个网站？')) {
+    if (!window.confirm(t('confirmDeleteSite'))) {
       return;
     }
-    await deleteSite(id);
-    setSelectedSiteIds((current) => current.filter((item) => item !== id));
-    setNotice('网站已删除');
-    await refreshData();
+    try {
+      await deleteSite(id);
+      setSelectedSiteIds((current) => current.filter((item) => item !== id));
+      setNotice(t('siteDeleted'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function handleIconUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -237,20 +280,26 @@ export function AdminApp() {
     if (!file) {
       return;
     }
-    const icon = await uploadIcon(file);
-    event.target.value = '';
-    setSiteDraft((current) => ({
-      ...current,
-      icon_type: 'image',
-      icon_value: icon.url
-    }));
-    setNotice('icon 已上传');
+    try {
+      const icon = await uploadIcon(file);
+      event.target.value = '';
+      setSiteDraft((current) => ({
+        ...current,
+        icon_type: 'image',
+        icon_value: icon.url
+      }));
+      setNotice(t('iconUploaded'));
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function handleFetchIcon() {
     const targetURL = siteDraft.default_url.trim();
     if (!targetURL) {
-      setNotice('请先填写默认 URL');
+      setNotice(t('fillDefaultURL'));
       return;
     }
 
@@ -262,9 +311,11 @@ export function AdminApp() {
         icon_type: 'image',
         icon_value: icon.url
       }));
-      setNotice('icon 已获取');
-    } catch {
-      setNotice('未获取到 icon');
+      setNotice(t('iconFetched'));
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        setNotice(t('iconFetchFailed'));
+      }
     } finally {
       setIconFetching(false);
     }
@@ -290,62 +341,169 @@ export function AdminApp() {
 
   async function submitTag(event: FormEvent) {
     event.preventDefault();
-    if (editingTagId) {
-      await updateTag(editingTagId, tagDraft);
-      setNotice('Tag 已更新');
-    } else {
-      await createTag(tagDraft);
-      setNotice('Tag 已创建');
+    try {
+      if (editingTagId) {
+        await updateTag(editingTagId, tagDraft);
+        setNotice(t('tagUpdated'));
+      } else {
+        await createTag(tagDraft);
+        setNotice(t('tagCreated'));
+      }
+      setTagPanelOpen(false);
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
     }
-    setTagPanelOpen(false);
-    await refreshData();
   }
 
   async function removeTag(id: string) {
-    if (!window.confirm('确认删除这个 Tag？关联网站不会被删除。')) {
+    if (!window.confirm(t('confirmDeleteTag'))) {
       return;
     }
-    await deleteTag(id);
-    setNotice('Tag 已删除');
-    await refreshData();
+    try {
+      await deleteTag(id);
+      setNotice(t('tagDeleted'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function makeDefaultTag(id: string) {
-    await setDefaultTag(id);
-    setNotice('默认 Tag 已更新');
-    await refreshData();
+    try {
+      await setDefaultTag(id);
+      setNotice(t('defaultTagUpdated'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function saveSiteOrder() {
-    await updateSiteOrder(toOrderItems(siteOrder));
-    setNotice('网站排序已保存');
-    await refreshData();
+    try {
+      await updateSiteOrder(toOrderItems(siteOrder));
+      setNotice(t('siteOrderSaved'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function saveTagOrder() {
-    await updateTagOrder(toOrderItems(tagOrder));
-    setNotice('Tag 排序已保存');
-    await refreshData();
+    try {
+      await updateTagOrder(toOrderItems(tagOrder));
+      setNotice(t('tagOrderSaved'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  function startSiteDrag(event: DragEvent<HTMLElement>, siteId: string) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', siteId);
+    setDraggingSiteId(siteId);
+  }
+
+  function startTagDrag(event: DragEvent<HTMLElement>, tagId: string) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', tagId);
+    setDraggingTagId(tagId);
+  }
+
+  function allowSortDrop(event: DragEvent<HTMLTableRowElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  async function dropSite(event: DragEvent<HTMLTableRowElement>, targetId: string) {
+    event.preventDefault();
+    const sourceId = draggingSiteId || event.dataTransfer.getData('text/plain');
+    setDraggingSiteId('');
+    if (!sourceId || sourceId === targetId) {
+      return;
+    }
+
+    const nextSites = moveItemById(sites, sourceId, targetId);
+    const nextOrder = buildSequentialOrder(nextSites);
+    setSites(nextSites);
+    setSiteOrder(nextOrder);
+    try {
+      await updateSiteOrder(toOrderItems(nextOrder));
+      setNotice(t('siteOrderUpdated'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        setNotice(t('siteOrderUpdateFailed'));
+        await refreshData();
+      }
+    }
+  }
+
+  async function dropTag(event: DragEvent<HTMLTableRowElement>, targetId: string) {
+    event.preventDefault();
+    const sourceId = draggingTagId || event.dataTransfer.getData('text/plain');
+    setDraggingTagId('');
+    if (!sourceId || sourceId === targetId) {
+      return;
+    }
+
+    const nextTags = moveItemById(tags, sourceId, targetId);
+    const nextOrder = buildSequentialOrder(nextTags);
+    setTags(nextTags);
+    setTagOrder(nextOrder);
+    try {
+      await updateTagOrder(toOrderItems(nextOrder));
+      setNotice(t('tagOrderUpdated'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        setNotice(t('tagOrderUpdateFailed'));
+        await refreshData();
+      }
+    }
   }
 
   async function handleBatchDelete() {
-    if (selectedSiteIds.length === 0 || !window.confirm(`确认删除选中的 ${selectedSiteIds.length} 个网站？`)) {
+    if (selectedSiteIds.length === 0 || !window.confirm(t('confirmBatchDelete', { count: selectedSiteIds.length }))) {
       return;
     }
-    await batchDeleteSites(selectedSiteIds);
-    setSelectedSiteIds([]);
-    setNotice('批量删除已完成');
-    await refreshData();
+    try {
+      await batchDeleteSites(selectedSiteIds);
+      setSelectedSiteIds([]);
+      setNotice(t('batchDeleteDone'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function handleBatchTags(action: 'add' | 'remove') {
     if (selectedSiteIds.length === 0 || batchTagIds.length === 0) {
-      setNotice('请选择网站和 Tag');
+      setNotice(t('chooseSitesAndTags'));
       return;
     }
-    await batchUpdateSiteTags(selectedSiteIds, batchTagIds, action);
-    setNotice(action === 'add' ? '批量添加 Tag 已完成' : '批量移除 Tag 已完成');
-    await refreshData();
+    try {
+      await batchUpdateSiteTags(selectedSiteIds, batchTagIds, action);
+      setNotice(action === 'add' ? t('batchAddTagDone') : t('batchRemoveTagDone'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function downloadExport(mode: 'all' | 'sites' | 'tags') {
@@ -356,22 +514,28 @@ export function AdminApp() {
           ? { tag_ids: exportTagIds }
           : {};
     if (mode === 'sites' && selectedSiteIds.length === 0) {
-      setNotice('请先选择网站');
+      setNotice(t('chooseSites'));
       return;
     }
     if (mode === 'tags' && exportTagIds.length === 0) {
-      setNotice('请先选择 Tag');
+      setNotice(t('chooseTags'));
       return;
     }
 
-    const file = await exportConfig(req);
-    const url = URL.createObjectURL(file.blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = file.fileName;
-    link.click();
-    URL.revokeObjectURL(url);
-    setNotice('导出已开始');
+    try {
+      const file = await exportConfig(req);
+      const url = URL.createObjectURL(file.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+      setNotice(t('exportStarted'));
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
@@ -379,17 +543,29 @@ export function AdminApp() {
     if (!file) {
       return;
     }
-    const report = await importConfig(file);
-    setImportReport(report);
-    setNotice('导入已完成');
-    await refreshData();
+    try {
+      const report = await importConfig(file);
+      setImportReport(report);
+      setNotice(t('importDone'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function submitPassword(event: FormEvent) {
     event.preventDefault();
-    await changeAdminPassword(passwordForm.current, passwordForm.next);
-    setPasswordForm({ current: '', next: '' });
-    setNotice('密码已修改');
+    try {
+      await changeAdminPassword(passwordForm.current, passwordForm.next);
+      setPasswordForm({ current: '', next: '' });
+      setNotice(t('passwordChanged'));
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        throw error;
+      }
+    }
   }
 
   async function submitRestorePassword(event: FormEvent) {
@@ -397,20 +573,20 @@ export function AdminApp() {
     setLoginError('');
     setRestoreNotice('');
     if (restoreForm.next.length < 8) {
-      setLoginError('新密码至少 8 位');
+      setLoginError(t('passwordMin'));
       return;
     }
     if (restoreForm.next !== restoreForm.confirm) {
-      setLoginError('两次输入的新密码不一致');
+      setLoginError(t('passwordMismatch'));
       return;
     }
 
     try {
       await restoreAdminPassword(restoreForm.token, restoreForm.next);
       setRestoreForm({ token: '', next: '', confirm: '' });
-      setRestoreNotice('管理员密码已重置。请关闭恢复模式并重启服务后登录。');
+      setRestoreNotice(t('restoreSuccess'));
     } catch {
-      setLoginError('Restore Token 无效、已过期或已使用');
+      setLoginError(t('restoreTokenInvalid'));
     }
   }
 
@@ -423,20 +599,23 @@ export function AdminApp() {
   }
 
   if (checking) {
-    return <AdminState text="正在检查 Session" />;
+    return <AdminState text={t('checkingSession')} />;
   }
 
   if (restoreMode) {
     return (
       <main className="admin-login">
         <form className="login-panel restore-panel" onSubmit={submitRestorePassword}>
+          <div className="auth-preferences">
+            <PreferenceControls />
+          </div>
           <div className="login-mark">
             <KeyRound size={26} aria-hidden="true" />
           </div>
-          <h1>恢复管理员密码</h1>
-          <p className="form-note">恢复模式已启用。输入启动时配置的 Restore Token，并设置新的管理员密码。</p>
+          <h1>{t('restorePasswordTitle')}</h1>
+          <p className="form-note">{t('restoreModeNote')}</p>
           <label>
-            <span>Restore Token</span>
+            <span>{t('restoreToken')}</span>
             <input
               type="password"
               value={restoreForm.token}
@@ -446,7 +625,7 @@ export function AdminApp() {
             />
           </label>
           <label>
-            <span>新密码</span>
+            <span>{t('newPassword')}</span>
             <input
               type="password"
               value={restoreForm.next}
@@ -455,7 +634,7 @@ export function AdminApp() {
             />
           </label>
           <label>
-            <span>确认新密码</span>
+            <span>{t('confirmNewPassword')}</span>
             <input
               type="password"
               value={restoreForm.confirm}
@@ -467,9 +646,9 @@ export function AdminApp() {
           {restoreNotice && <p className="form-success">{restoreNotice}</p>}
           <button className="primary-button" type="submit">
             <Save size={17} aria-hidden="true" />
-            重置密码
+            {t('resetPassword')}
           </button>
-          <p className="form-note">重置成功后需要删除恢复配置并重启服务，正常管理接口才会重新开放。</p>
+          <p className="form-note">{t('restoreDoneNote')}</p>
         </form>
       </main>
     );
@@ -479,12 +658,15 @@ export function AdminApp() {
     return (
       <main className="admin-login">
         <form className="login-panel" onSubmit={submitLogin}>
+          <div className="auth-preferences">
+            <PreferenceControls />
+          </div>
           <div className="login-mark">
             <Shield size={26} aria-hidden="true" />
           </div>
-          <h1>Navbox Admin</h1>
+          <h1>{t('adminLogin')}</h1>
           <label>
-            <span>密码</span>
+            <span>{t('password')}</span>
             <input
               type="password"
               value={password}
@@ -496,7 +678,7 @@ export function AdminApp() {
           {loginError && <p className="form-error">{loginError}</p>}
           <button className="primary-button" type="submit">
             <LogIn size={17} aria-hidden="true" />
-            登录
+            {t('login')}
           </button>
         </form>
       </main>
@@ -507,44 +689,45 @@ export function AdminApp() {
     <main className="admin-shell">
       <header className="admin-header">
         <div>
-          <h1>Navbox Admin</h1>
-          <p>{sites.length} 个网站，{tags.length} 个 Tag</p>
+          <h1>{t('navboxAdmin')}</h1>
+          <p>{t('adminStats', { sites: sites.length, tags: tags.length })}</p>
         </div>
         <div className="admin-header-actions">
+          <PreferenceControls />
           <button type="button" onClick={() => (window.location.href = '/')}>
-            游客首页
+            {t('visitorHome')}
           </button>
           <button type="button" onClick={handleLogout}>
             <LogOut size={17} aria-hidden="true" />
-            退出
+            {t('logout')}
           </button>
         </div>
       </header>
 
-      <nav className="admin-tabs" aria-label="admin 管理模块">
-        <AdminTabButton active={tab === 'sites'} onClick={() => setTab('sites')} icon={Settings} label="网站" />
-        <AdminTabButton active={tab === 'tags'} onClick={() => setTab('tags')} icon={Tags} label="Tag" />
-        <AdminTabButton active={tab === 'io'} onClick={() => setTab('io')} icon={FileUp} label="导入导出" />
-        <AdminTabButton active={tab === 'password'} onClick={() => setTab('password')} icon={KeyRound} label="密码" />
+      <nav className="admin-tabs" aria-label={t('adminModules')}>
+        <AdminTabButton active={tab === 'sites'} onClick={() => setTab('sites')} icon={Settings} label={t('sitesTab')} />
+        <AdminTabButton active={tab === 'tags'} onClick={() => setTab('tags')} icon={Tags} label={t('tagsTab')} />
+        <AdminTabButton active={tab === 'io'} onClick={() => setTab('io')} icon={FileUp} label={t('importExportTab')} />
+        <AdminTabButton active={tab === 'password'} onClick={() => setTab('password')} icon={KeyRound} label={t('passwordTab')} />
       </nav>
 
       {notice && <div className="toast">{notice}</div>}
-      {loading && <AdminState text="正在刷新数据" />}
+      {loading && <AdminState text={t('refreshing')} />}
 
       {!loading && tab === 'sites' && (
         <section className="admin-section">
           <div className="admin-actions">
             <button className="primary-button" type="button" onClick={openNewSite}>
               <Plus size={17} aria-hidden="true" />
-              新建网站
+              {t('newSite')}
             </button>
             <button type="button" onClick={saveSiteOrder}>
               <Save size={17} aria-hidden="true" />
-              保存排序
+              {t('saveOrder')}
             </button>
             <button type="button" onClick={handleBatchDelete}>
               <Trash2 size={17} aria-hidden="true" />
-              批量删除
+              {t('batchDelete')}
             </button>
           </div>
 
@@ -560,33 +743,53 @@ export function AdminApp() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>选择</th>
-                  <th>网站</th>
+                  <th>{t('drag')}</th>
+                  <th>{t('select')}</th>
+                  <th>{t('site')}</th>
                   <th>Tag</th>
-                  <th>打开方式</th>
-                  <th>常用</th>
-                  <th>排序</th>
-                  <th>操作</th>
+                  <th>{t('openMethod')}</th>
+                  <th>{t('favoriteColumn')}</th>
+                  <th>{t('sort')}</th>
+                  <th>{t('actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {sites.map((site) => (
-                  <tr key={site.id}>
+                  <tr
+                    className={draggingSiteId === site.id ? 'dragging-row' : undefined}
+                    key={site.id}
+                    onDragOver={allowSortDrop}
+                    onDrop={(event) => dropSite(event, site.id)}
+                  >
+                    <td>
+                      <span
+                        className="drag-handle"
+                        draggable
+                        onDragStart={(event) => startSiteDrag(event, site.id)}
+                        onDragEnd={() => setDraggingSiteId('')}
+                        role="button"
+                        tabIndex={0}
+                        title={t('dragSort')}
+                        aria-label={`${t('dragSort')} ${site.title}`}
+                      >
+                        <GripVertical size={16} aria-hidden="true" />
+                      </span>
+                    </td>
                     <td>
                       <input
                         type="checkbox"
                         checked={selectedSiteSet.has(site.id)}
                         onChange={() => toggleSiteSelection(site.id)}
-                        aria-label={`选择 ${site.title}`}
+                        aria-label={t('selectSite', { title: site.title })}
                       />
                     </td>
                     <td>
                       <strong>{site.title}</strong>
                       <span>{site.default_url}</span>
                     </td>
-                    <td>{site.tags.map((tag) => tag.name).join(', ') || '未分类'}</td>
-                    <td>{formatOpenMethod(site.open_method)}</td>
-                    <td>{site.is_favorite ? '是' : '否'}</td>
+                    <td>{site.tags.map((tag) => tag.name).join(', ') || t('uncategorized')}</td>
+                    <td>{site.open_method === 'current_window' ? t('currentTab') : t('newTab')}</td>
+                    <td>{site.is_favorite ? t('yes') : t('no')}</td>
                     <td>
                       <input
                         className="order-input"
@@ -597,10 +800,10 @@ export function AdminApp() {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <button type="button" onClick={() => openEditSite(site)} title="编辑网站">
+                        <button type="button" onClick={() => openEditSite(site)} title={t('editSite')}>
                           <Pencil size={16} aria-hidden="true" />
                         </button>
-                        <button type="button" onClick={() => removeSite(site.id)} title="删除网站">
+                        <button type="button" onClick={() => removeSite(site.id)} title={t('deleteSite')}>
                           <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </div>
@@ -618,35 +821,55 @@ export function AdminApp() {
           <div className="admin-actions">
             <button className="primary-button" type="button" onClick={openNewTag}>
               <Plus size={17} aria-hidden="true" />
-              新建 Tag
+              {t('newTag')}
             </button>
             <button type="button" onClick={saveTagOrder}>
               <Save size={17} aria-hidden="true" />
-              保存排序
+              {t('saveOrder')}
             </button>
           </div>
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead>
                 <tr>
+                  <th>{t('drag')}</th>
                   <th>Tag</th>
-                  <th>状态</th>
-                  <th>网站数</th>
-                  <th>排序</th>
-                  <th>操作</th>
+                  <th>{t('status')}</th>
+                  <th>{t('siteCount')}</th>
+                  <th>{t('sort')}</th>
+                  <th>{t('actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {tags.map((tag) => (
-                  <tr key={tag.id}>
+                  <tr
+                    className={draggingTagId === tag.id ? 'dragging-row' : undefined}
+                    key={tag.id}
+                    onDragOver={allowSortDrop}
+                    onDrop={(event) => dropTag(event, tag.id)}
+                  >
+                    <td>
+                      <span
+                        className="drag-handle"
+                        draggable
+                        onDragStart={(event) => startTagDrag(event, tag.id)}
+                        onDragEnd={() => setDraggingTagId('')}
+                        role="button"
+                        tabIndex={0}
+                        title={t('dragSort')}
+                        aria-label={`${t('dragSort')} ${tag.name}`}
+                      >
+                        <GripVertical size={16} aria-hidden="true" />
+                      </span>
+                    </td>
                     <td>
                       <strong>
                         <span className="color-swatch" style={{ background: tag.color || '#2f7d6d' }} />
                         {tag.name}
                       </strong>
-                      <span>{tag.icon || '无图标'}</span>
+                      <span>{tag.icon || t('noIcon')}</span>
                     </td>
-                    <td>{tag.is_default ? '默认' : tag.is_enabled ? '启用' : '停用'}</td>
+                    <td>{tag.is_default ? t('defaultStatus') : tag.is_enabled ? t('enabledStatus') : t('disabledStatus')}</td>
                     <td>{tag.site_count}</td>
                     <td>
                       <input
@@ -659,14 +882,14 @@ export function AdminApp() {
                     <td>
                       <div className="row-actions">
                         {!tag.is_default && (
-                          <button type="button" onClick={() => makeDefaultTag(tag.id)} title="设为默认">
+                          <button type="button" onClick={() => makeDefaultTag(tag.id)} title={t('setDefault')}>
                             <Check size={16} aria-hidden="true" />
                           </button>
                         )}
-                        <button type="button" onClick={() => openEditTag(tag)} title="编辑 Tag">
+                        <button type="button" onClick={() => openEditTag(tag)} title={t('editTag')}>
                           <Pencil size={16} aria-hidden="true" />
                         </button>
-                        <button type="button" onClick={() => removeTag(tag.id)} title="删除 Tag">
+                        <button type="button" onClick={() => removeTag(tag.id)} title={t('deleteTag')}>
                           <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </div>
@@ -682,14 +905,14 @@ export function AdminApp() {
       {!loading && tab === 'io' && (
         <section className="admin-section admin-grid-two">
           <div className="admin-tool-panel">
-            <h2>导出</h2>
+            <h2>{t('export')}</h2>
             <div className="stack">
               <button className="primary-button" type="button" onClick={() => downloadExport('all')}>
                 <Download size={17} aria-hidden="true" />
-                导出全部
+                {t('exportAll')}
               </button>
               <button type="button" onClick={() => downloadExport('sites')}>
-                导出选中网站
+                {t('exportSelectedSites')}
               </button>
               <div className="checkbox-list">
                 {tags.map((tag) => (
@@ -704,23 +927,31 @@ export function AdminApp() {
                 ))}
               </div>
               <button type="button" onClick={() => downloadExport('tags')}>
-                导出选中 Tag
+                {t('exportSelectedTags')}
               </button>
             </div>
           </div>
 
           <div className="admin-tool-panel">
-            <h2>导入</h2>
+            <h2>{t('import')}</h2>
             <label className="file-button">
               <Upload size={17} aria-hidden="true" />
-              选择 zip 导入
+              {t('chooseZipImport')}
               <input type="file" accept=".zip,application/zip" onChange={handleImport} />
             </label>
             {importReport && (
               <div className="report-box">
-                <strong>导入结果</strong>
-                <span>新增网站 {importReport.imported.sites}，Tag {importReport.imported.tags}，icon {importReport.imported.icons}</span>
-                <span>跳过网站 {importReport.skipped.sites}，Tag {importReport.skipped.tags}，icon {importReport.skipped.icons}</span>
+                <strong>{t('importResult')}</strong>
+                <span>{t('importedSummary', {
+                  sites: importReport.imported.sites,
+                  tags: importReport.imported.tags,
+                  icons: importReport.imported.icons
+                })}</span>
+                <span>{t('skippedSummary', {
+                  sites: importReport.skipped.sites,
+                  tags: importReport.skipped.tags,
+                  icons: importReport.skipped.icons
+                })}</span>
                 {importReport.conflicts.slice(0, 5).map((conflict, index) => (
                   <span key={`${conflict.type}-${conflict.id}-${index}`}>{conflict.type}: {conflict.reason}</span>
                 ))}
@@ -734,7 +965,7 @@ export function AdminApp() {
         <section className="admin-section narrow-section">
           <form className="admin-form" onSubmit={submitPassword}>
             <label>
-              <span>当前密码</span>
+              <span>{t('currentPassword')}</span>
               <input
                 type="password"
                 value={passwordForm.current}
@@ -743,7 +974,7 @@ export function AdminApp() {
               />
             </label>
             <label>
-              <span>新密码</span>
+              <span>{t('newPassword')}</span>
               <input
                 type="password"
                 value={passwordForm.next}
@@ -754,14 +985,14 @@ export function AdminApp() {
             </label>
             <button className="primary-button" type="submit">
               <Save size={17} aria-hidden="true" />
-              修改密码
+              {t('changePassword')}
             </button>
           </form>
         </section>
       )}
 
       {sitePanelOpen && (
-        <SidePanel title={editingSiteId ? '编辑网站' : '新建网站'} onClose={() => setSitePanelOpen(false)}>
+        <SidePanel title={editingSiteId ? t('editSiteTitle') : t('newSiteTitle')} onClose={() => setSitePanelOpen(false)}>
           <SiteForm
             draft={siteDraft}
             tags={tags}
@@ -775,7 +1006,7 @@ export function AdminApp() {
       )}
 
       {tagPanelOpen && (
-        <SidePanel title={editingTagId ? '编辑 Tag' : '新建 Tag'} onClose={() => setTagPanelOpen(false)}>
+        <SidePanel title={editingTagId ? t('editTagTitle') : t('newTagTitle')} onClose={() => setTagPanelOpen(false)}>
           <TagForm draft={tagDraft} onChange={setTagDraft} onSubmit={submitTag} />
         </SidePanel>
       )}
@@ -815,6 +1046,8 @@ function BatchTagBar({
   onAdd: () => void;
   onRemove: () => void;
 }) {
+  const { t } = usePreferences();
+
   return (
     <div className="batch-bar">
       <div className="checkbox-list compact">
@@ -825,19 +1058,21 @@ function BatchTagBar({
           </label>
         ))}
       </div>
-      <button type="button" onClick={onAdd}>批量添加 Tag</button>
-      <button type="button" onClick={onRemove}>批量移除 Tag</button>
+      <button type="button" onClick={onAdd}>{t('batchAddTag')}</button>
+      <button type="button" onClick={onRemove}>{t('batchRemoveTag')}</button>
     </div>
   );
 }
 
 function SidePanel({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+  const { t } = usePreferences();
+
   return (
     <div className="panel-backdrop">
       <aside className="side-panel">
         <header>
           <h2>{title}</h2>
-          <button type="button" onClick={onClose} title="关闭">
+          <button type="button" onClick={onClose} title={t('close')}>
             <X size={18} aria-hidden="true" />
           </button>
         </header>
@@ -864,6 +1099,8 @@ function SiteForm({
   onFetchIcon: () => void;
   iconFetching: boolean;
 }) {
+  const { t } = usePreferences();
+
   function patch(next: Partial<SiteSaveReq>) {
     onChange({ ...draft, ...next });
   }
@@ -877,71 +1114,71 @@ function SiteForm({
   return (
     <form className="admin-form" onSubmit={onSubmit}>
       <label>
-        <span>标题</span>
+        <span>{t('title')}</span>
         <input value={draft.title} onChange={(event) => patch({ title: event.target.value })} required />
       </label>
       <label>
-        <span>默认 URL</span>
+        <span>{t('defaultURL')}</span>
         <input value={draft.default_url} onChange={(event) => patch({ default_url: event.target.value })} required />
       </label>
       <label>
-        <span>LAN URL</span>
+        <span>{t('lanURL')}</span>
         <input value={draft.lan_url} onChange={(event) => patch({ lan_url: event.target.value })} />
       </label>
       <label>
-        <span>描述</span>
+        <span>{t('description')}</span>
         <textarea value={draft.description} onChange={(event) => patch({ description: event.target.value })} rows={3} />
       </label>
       <div className="form-grid">
         <label>
-          <span>打开方式</span>
+          <span>{t('openMethod')}</span>
           <select value={draft.open_method} onChange={(event) => patch({ open_method: event.target.value })}>
-            <option value="new_window">新窗口</option>
-            <option value="current_window">当前窗口</option>
+            <option value="new_window">{t('newWindow')}</option>
+            <option value="current_window">{t('currentWindow')}</option>
           </select>
         </label>
         <label>
-          <span>排序</span>
+          <span>{t('sort')}</span>
           <input type="number" value={draft.sort_order} onChange={(event) => patch({ sort_order: Number(event.target.value) })} />
         </label>
       </div>
       <div className="form-grid">
         <label>
-          <span>图标类型</span>
+          <span>{t('iconType')}</span>
           <select value={draft.icon_type} onChange={(event) => patch({ icon_type: event.target.value })}>
-            <option value="text">文本</option>
-            <option value="image">图片</option>
-            <option value="online">在线</option>
+            <option value="text">{t('textIcon')}</option>
+            <option value="image">{t('imageIcon')}</option>
+            <option value="online">{t('onlineIcon')}</option>
           </select>
         </label>
         <label>
-          <span>背景色</span>
+          <span>{t('backgroundColor')}</span>
           <input value={draft.background_color} onChange={(event) => patch({ background_color: event.target.value })} />
         </label>
       </div>
       <label>
-        <span>图标值</span>
+        <span>{t('iconValue')}</span>
         <input value={draft.icon_value} onChange={(event) => patch({ icon_value: event.target.value })} />
       </label>
       <div className="icon-actions">
         <button type="button" onClick={onFetchIcon} disabled={iconFetching || !draft.default_url.trim()}>
           <RefreshCw className={iconFetching ? 'spin' : ''} size={17} aria-hidden="true" />
-          {iconFetching ? '获取中' : '从网站获取'}
+          {iconFetching ? t('fetching') : t('fetchFromWebsite')}
         </button>
         <label className="file-button inline-file">
           <Upload size={17} aria-hidden="true" />
-          上传 icon
+          {t('uploadIcon')}
           <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={onIconUpload} />
         </label>
       </div>
       <div className="checkbox-row">
         <label>
           <input type="checkbox" checked={draft.only_name} onChange={(event) => patch({ only_name: event.target.checked })} />
-          <span>仅显示名称</span>
+          <span>{t('onlyName')}</span>
         </label>
         <label>
           <input type="checkbox" checked={draft.is_favorite} onChange={(event) => patch({ is_favorite: event.target.checked })} />
-          <span>常用</span>
+          <span>{t('favorite')}</span>
         </label>
       </div>
       <div className="checkbox-list">
@@ -954,7 +1191,7 @@ function SiteForm({
       </div>
       <button className="primary-button" type="submit">
         <Save size={17} aria-hidden="true" />
-        保存网站
+        {t('saveSite')}
       </button>
     </form>
   );
@@ -969,6 +1206,8 @@ function TagForm({
   onChange: (draft: TagSaveReq) => void;
   onSubmit: (event: FormEvent) => void;
 }) {
+  const { t } = usePreferences();
+
   function patch(next: Partial<TagSaveReq>) {
     onChange({ ...draft, ...next });
   }
@@ -976,30 +1215,30 @@ function TagForm({
   return (
     <form className="admin-form" onSubmit={onSubmit}>
       <label>
-        <span>名称</span>
+        <span>{t('name')}</span>
         <input value={draft.name} onChange={(event) => patch({ name: event.target.value })} required />
       </label>
       <label>
-        <span>图标</span>
+        <span>{t('icon')}</span>
         <input value={draft.icon} onChange={(event) => patch({ icon: event.target.value })} />
       </label>
       <div className="form-grid">
         <label>
-          <span>颜色</span>
+          <span>{t('color')}</span>
           <input type="color" value={draft.color || '#2f7d6d'} onChange={(event) => patch({ color: event.target.value })} />
         </label>
         <label>
-          <span>排序</span>
+          <span>{t('sort')}</span>
           <input type="number" value={draft.sort_order} onChange={(event) => patch({ sort_order: Number(event.target.value) })} />
         </label>
       </div>
       <label className="checkbox-line">
         <input type="checkbox" checked={draft.is_enabled} onChange={(event) => patch({ is_enabled: event.target.checked })} />
-        <span>启用</span>
+        <span>{t('enabled')}</span>
       </label>
       <button className="primary-button" type="submit">
         <Save size={17} aria-hidden="true" />
-        保存 Tag
+        {t('saveTag')}
       </button>
     </form>
   );
@@ -1017,6 +1256,20 @@ function toOrderItems(values: Record<string, number>): OrderItem[] {
   return Object.entries(values).map(([id, sortOrder]) => ({ id, sort_order: Number(sortOrder) }));
 }
 
-function formatOpenMethod(value: string): string {
-  return value === 'current_window' ? '当前 Tab' : '新 Tab';
+function buildSequentialOrder<T extends { id: string }>(items: T[]): Record<string, number> {
+  return Object.fromEntries(items.map((item, index) => [item.id, (index + 1) * 10]));
+}
+
+function moveItemById<T extends { id: string }>(items: T[], sourceId: string, targetId: string): T[] {
+  const sourceIndex = items.findIndex((item) => item.id === sourceId);
+  const targetIndex = items.findIndex((item) => item.id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0) {
+    return items;
+  }
+
+  const next = [...items];
+  const [source] = next.splice(sourceIndex, 1);
+  const insertIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+  next.splice(insertIndex, 0, source);
+  return next;
 }

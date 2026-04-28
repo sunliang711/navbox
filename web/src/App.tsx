@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { getPublicConfig, listSites, listTags } from './api';
 import { AdminApp } from './AdminApp';
+import { PreferenceControls, PreferencesProvider, usePreferences } from './preferences';
 import { loadRecentSites, saveRecentSite } from './recent';
 import './styles.css';
 import type { RecentSite, Site, Tag } from './types';
@@ -16,16 +17,19 @@ import type { RecentSite, Site, Tag } from './types';
 type ViewMode = 'all' | 'favorite' | 'recent';
 
 const preferLanKey = 'navbox_prefer_lan';
+const tagQueryKey = 'tags';
+const viewQueryKey = 'view';
 
 export function App() {
-  if (window.location.pathname.startsWith('/admin')) {
-    return <AdminApp />;
-  }
-
-  return <VisitorApp />;
+  return (
+    <PreferencesProvider>
+      {window.location.pathname.startsWith('/admin') ? <AdminApp /> : <VisitorApp />}
+    </PreferencesProvider>
+  );
 }
 
 function VisitorApp() {
+  const { t } = usePreferences();
   const [tags, setTags] = useState<Tag[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [recentSites, setRecentSites] = useState<RecentSite[]>(() => loadRecentSites());
@@ -50,14 +54,20 @@ function VisitorApp() {
         }
         const enabledTags = tagList.filter((tag) => tag.is_enabled);
         const defaultTag = enabledTags.find((tag) => tag.id === config.default_tag_id);
+        const queryState = loadVisitorQueryState(enabledTags);
         setTags(enabledTags);
-        if (defaultTag) {
+        if (queryState.view !== 'all') {
+          setView(queryState.view);
+          setSelectedTagIds([]);
+        } else if (queryState.hasQueryState) {
+          setSelectedTagIds(queryState.tagIds);
+        } else if (defaultTag) {
           setSelectedTagIds([defaultTag.id]);
         }
         setReady(true);
       } catch {
         if (!cancelled) {
-          setError('首页数据加载失败');
+          setError(t('homeLoadFailed'));
           setReady(true);
         }
       } finally {
@@ -71,7 +81,7 @@ function VisitorApp() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!ready || view === 'recent') {
@@ -93,7 +103,7 @@ function VisitorApp() {
         }
       } catch {
         if (!cancelled) {
-          setError('网站列表加载失败');
+          setError(t('siteListLoadFailed'));
         }
       } finally {
         if (!cancelled) {
@@ -106,9 +116,24 @@ function VisitorApp() {
     return () => {
       cancelled = true;
     };
-  }, [ready, search, selectedTagIds, view]);
+  }, [ready, search, selectedTagIds, t, view]);
 
   const selectedTagSet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
+  const currentTitle = useMemo(() => {
+    if (view === 'favorite') {
+      return t('favoriteTools');
+    }
+    if (view === 'recent') {
+      return t('recentVisits');
+    }
+    if (selectedTagIds.length === 1) {
+      return tags.find((tag) => tag.id === selectedTagIds[0])?.name || t('allTools');
+    }
+    if (selectedTagIds.length > 1) {
+      return t('selectedCategoryCount', { count: selectedTagIds.length });
+    }
+    return t('allTools');
+  }, [selectedTagIds, t, tags, view]);
   const displaySites = view === 'recent' ? filterRecentSites(recentSites, search) : sites;
 
   function togglePreferLan() {
@@ -121,13 +146,16 @@ function VisitorApp() {
 
   function toggleTag(tagId: string) {
     setView('all');
-    setSelectedTagIds((current) =>
-      current.includes(tagId) ? current.filter((item) => item !== tagId) : [...current, tagId]
-    );
+    setSelectedTagIds((current) => {
+      const next = current.includes(tagId) ? current.filter((item) => item !== tagId) : [...current, tagId];
+      saveVisitorQueryState('all', next);
+      return next;
+    });
   }
 
   function switchView(nextView: ViewMode) {
     setView(nextView);
+    saveVisitorQueryState(nextView, []);
     if (nextView !== 'all') {
       setSelectedTagIds([]);
     }
@@ -150,33 +178,47 @@ function VisitorApp() {
     <main className="app-shell">
       <section className="content">
         <header className="toolbar">
-          <div className="search-box">
-            <Search size={18} aria-hidden="true" />
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="按回车键聚焦并搜索应用"
-              aria-label="搜索网站"
-            />
-            {search && (
-              <button className="icon-button" type="button" onClick={() => setSearch('')} title="清空搜索">
-                <X size={16} aria-hidden="true" />
-              </button>
-            )}
+          <div className="toolbar-top">
+            <div className="search-box">
+              <Search size={18} aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('searchPlaceholder')}
+                aria-label={t('searchSites')}
+              />
+              {search && (
+                <button className="icon-button" type="button" onClick={() => setSearch('')} title={t('clearSearch')}>
+                  <X size={16} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <div className="toolbar-actions">
+              <PreferenceControls />
+              <label className={preferLan ? 'lan-toggle active' : 'lan-toggle'}>
+                <input type="checkbox" checked={preferLan} onChange={togglePreferLan} />
+                <span className="toggle-track" aria-hidden="true">
+                  <span className="toggle-thumb" />
+                </span>
+                <span>{t('preferLan')}</span>
+              </label>
+              <a className="admin-link" href="/admin">{t('admin')}</a>
+            </div>
           </div>
 
           <div className="filter-bar">
-            <nav className="pill-nav" aria-label="Tag 筛选">
+            <nav className="pill-nav" aria-label={t('tagFilter')}>
               <button
                 className={view === 'all' && selectedTagIds.length === 0 ? 'filter-pill active' : 'filter-pill'}
                 type="button"
                 onClick={() => {
                   setSelectedTagIds([]);
                   setView('all');
+                  saveVisitorQueryState('all', []);
                 }}
               >
-                全部工具
+                {t('allTools')}
               </button>
               {tags.map((tag) => (
                 <button
@@ -193,32 +235,28 @@ function VisitorApp() {
                 type="button"
                 onClick={() => switchView('favorite')}
               >
-                常用工具
+                {t('favoriteTools')}
               </button>
               <button
                 className={view === 'recent' ? 'filter-pill active' : 'filter-pill'}
                 type="button"
                 onClick={() => switchView('recent')}
               >
-                最近访问
+                {t('recentVisits')}
               </button>
-              <a className="filter-pill admin-pill" href="/admin">管理后台</a>
             </nav>
-            <label className={preferLan ? 'lan-toggle active' : 'lan-toggle'}>
-              <input type="checkbox" checked={preferLan} onChange={togglePreferLan} />
-              <span className="toggle-track" aria-hidden="true">
-                <span className="toggle-thumb" />
-              </span>
-              <span>内网优先</span>
-            </label>
           </div>
         </header>
+
+        <div className="visitor-section-head">
+          <h1>{currentTitle}</h1>
+        </div>
 
         <section className="site-area" aria-live="polite">
           {loading && (
             <div className="state">
               <Loader2 className="spin" size={24} aria-hidden="true" />
-              <span>加载中</span>
+              <span>{t('loading')}</span>
             </div>
           )}
 
@@ -230,7 +268,7 @@ function VisitorApp() {
 
           {!loading && !error && displaySites.length === 0 && (
             <div className="state">
-              <span>没有匹配的网站</span>
+              <span>{t('noMatchingSites')}</span>
             </div>
           )}
 
@@ -256,7 +294,7 @@ function SiteCard({
   preferLan: boolean;
   onOpen: (site: Site) => void;
 }) {
-  const primaryTag = site.tags[0];
+  const { t } = usePreferences();
   const opensInNewTab = site.open_method === 'new_window';
   const hasLanURL = site.lan_url.trim() !== '';
   const usingLanURL = preferLan && hasLanURL;
@@ -268,31 +306,28 @@ function SiteCard({
         <div className="site-copy">
           <div className="site-title-row">
             <h2>{site.title}</h2>
-          </div>
-          {!site.only_name && site.description && <p>{site.description}</p>}
-          <div className="site-meta-row">
-            {primaryTag && <span className="site-tag">{primaryTag.name}</span>}
             {hasLanURL && (
               <span
-                className={usingLanURL ? 'site-tag lan-tag active' : 'site-tag lan-tag'}
-                title={usingLanURL ? '当前使用 LAN URL' : '已配置 LAN URL'}
+                className={usingLanURL ? 'site-network-badge active' : 'site-network-badge'}
+                title={usingLanURL ? t('usingLanURL') : t('hasLanURL')}
               >
                 LAN
               </span>
             )}
           </div>
+          {!site.only_name && site.description && <p>{site.description}</p>}
         </div>
         <div className="site-card-tools">
           {opensInNewTab ? (
-            <span className="open-method-icon" title="新标签页打开" aria-label="新标签页打开" role="img">
+            <span className="open-method-icon" title={t('openNewTab')} aria-label={t('openNewTab')} role="img">
               <ExternalLink size={15} aria-hidden="true" />
             </span>
           ) : (
-            <span className="open-method-icon" title="当前页打开" aria-label="当前页打开" role="img">
+            <span className="open-method-icon" title={t('openCurrentTab')} aria-label={t('openCurrentTab')} role="img">
               <ArrowRight size={15} aria-hidden="true" />
             </span>
           )}
-          {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label="常用" />}
+          {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label={t('favorite')} />}
         </div>
       </div>
     </button>
@@ -331,6 +366,41 @@ function getSiteURL(site: Site, preferLan: boolean): string {
     return site.lan_url;
   }
   return site.default_url;
+}
+
+function loadVisitorQueryState(tags: Tag[]): { hasQueryState: boolean; tagIds: string[]; view: ViewMode } {
+  const params = new URLSearchParams(window.location.search);
+  const queryView = params.get(viewQueryKey);
+  const view = isViewMode(queryView) ? queryView : 'all';
+  const tagSet = new Set(tags.map((tag) => tag.id));
+  const tagIds = (params.get(tagQueryKey) || '')
+    .split(',')
+    .map((tagId) => tagId.trim())
+    .filter((tagId) => tagSet.has(tagId));
+
+  return {
+    hasQueryState: params.has(tagQueryKey) || params.has(viewQueryKey),
+    tagIds,
+    view
+  };
+}
+
+function saveVisitorQueryState(view: ViewMode, tagIds: string[]) {
+  const url = new URL(window.location.href);
+  url.searchParams.delete(tagQueryKey);
+  url.searchParams.delete(viewQueryKey);
+
+  if (view === 'all' && tagIds.length > 0) {
+    url.searchParams.set(tagQueryKey, tagIds.join(','));
+  } else {
+    url.searchParams.set(viewQueryKey, view);
+  }
+
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
+function isViewMode(view: string | null): view is ViewMode {
+  return view === 'all' || view === 'favorite' || view === 'recent';
 }
 
 function loadPreferLan(): boolean {

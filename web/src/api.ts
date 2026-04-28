@@ -16,6 +16,17 @@ import type {
   TagSaveReq
 } from './types';
 
+export class UnauthorizedError extends Error {
+  constructor() {
+    super('unauthorized');
+    this.name = 'UnauthorizedError';
+  }
+}
+
+export function isUnauthorizedError(error: unknown): error is UnauthorizedError {
+  return error instanceof UnauthorizedError;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
     credentials: 'include',
@@ -25,6 +36,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init.headers
     }
   });
+  if (response.status === 401) {
+    throw new UnauthorizedError();
+  }
   if (!response.ok) {
     throw new Error('request failed');
   }
@@ -175,6 +189,9 @@ export async function exportConfig(req: { site_ids?: string[]; tag_ids?: string[
     },
     body: JSON.stringify(req)
   });
+  if (response.status === 401) {
+    throw new UnauthorizedError();
+  }
   if (!response.ok) {
     throw new Error('request failed');
   }
