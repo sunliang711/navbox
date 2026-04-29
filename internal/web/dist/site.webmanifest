@@ -3,8 +3,8 @@
   "short_name": "Navbox",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#656565",
+  "background_color": "#071a31",
+  "theme_color": "#0d2745",
   "icons": [
     {
       "src": "/icon.svg",

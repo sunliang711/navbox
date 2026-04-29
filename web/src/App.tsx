@@ -6,6 +6,7 @@ import {
   Loader2,
   MoreHorizontal,
   Search,
+  SlidersHorizontal,
   X
 } from 'lucide-react';
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -48,6 +49,7 @@ function VisitorApp() {
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +134,21 @@ function VisitorApp() {
     const timer = window.setTimeout(() => setNotice(''), 1800);
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+  useEffect(() => {
+    if (!settingsOpen) {
+      return;
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setSettingsOpen(false);
+      }
+    }
+
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [settingsOpen]);
 
   const selectedTagSet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
   const currentTitle = useMemo(() => {
@@ -230,7 +247,22 @@ function VisitorApp() {
                 </button>
               )}
             </div>
-            <div className="toolbar-actions">
+            <div
+              className={settingsOpen ? 'toolbar-actions open' : 'toolbar-actions'}
+              id="visitor-toolbar-actions"
+            >
+              <div className="mobile-settings-head">
+                <span>{t('displaySettings')}</span>
+                <button
+                  className="icon-button"
+                  type="button"
+                  onClick={() => setSettingsOpen(false)}
+                  title={t('close')}
+                  aria-label={t('close')}
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </div>
               <PreferenceControls />
               <label className={previewEnabled ? 'toolbar-toggle preview-toggle active' : 'toolbar-toggle preview-toggle'}>
                 <input type="checkbox" checked={previewEnabled} onChange={togglePreview} />
@@ -248,6 +280,14 @@ function VisitorApp() {
               </label>
               <a className="admin-link" href="/admin">{t('admin')}</a>
             </div>
+            {settingsOpen && (
+              <button
+                className="mobile-settings-backdrop"
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                aria-label={t('close')}
+              />
+            )}
           </div>
 
           <div className="filter-bar">
@@ -288,6 +328,17 @@ function VisitorApp() {
                 {t('recentVisits')}
               </button>
             </nav>
+            <button
+              className="mobile-settings-button"
+              type="button"
+              onClick={() => setSettingsOpen((current) => !current)}
+              title={t('displaySettings')}
+              aria-label={t('displaySettings')}
+              aria-expanded={settingsOpen}
+              aria-controls="visitor-toolbar-actions"
+            >
+              <SlidersHorizontal size={18} aria-hidden="true" />
+            </button>
             {view === 'all' && selectedTagIds.length > 1 && (
               <div className="tag-match-toggle" role="group" aria-label={t('tagMatchMode')}>
                 <button
