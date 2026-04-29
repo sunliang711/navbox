@@ -772,7 +772,7 @@ export function AdminApp() {
                     onDragOver={allowSortDrop}
                     onDrop={(event) => dropSite(event, site.id)}
                   >
-                    <td className="drag-cell">
+                    <td className="drag-cell" data-label={t('drag')}>
                       <span
                         className="drag-handle"
                         draggable
@@ -786,7 +786,7 @@ export function AdminApp() {
                         <GripVertical size={16} aria-hidden="true" />
                       </span>
                     </td>
-                    <td className="select-cell">
+                    <td className="select-cell" data-label={t('select')}>
                       <input
                         type="checkbox"
                         checked={selectedSiteSet.has(site.id)}
@@ -794,11 +794,11 @@ export function AdminApp() {
                         aria-label={t('selectSite', { title: site.title })}
                       />
                     </td>
-                    <td className="site-cell">
+                    <td className="site-cell" data-label={t('site')}>
                       <strong>{site.title}</strong>
                       <span>{site.default_url}</span>
                     </td>
-                    <td className="tag-cell">
+                    <td className="tag-cell" data-label="Tag">
                       <div className="table-tags">
                         {site.tags.length > 0 ? (
                           site.tags.map((tag) => (
@@ -809,15 +809,15 @@ export function AdminApp() {
                         )}
                       </div>
                     </td>
-                    <td className="open-cell">
+                    <td className="open-cell" data-label={t('openMethod')}>
                       <span className="status-pill">{site.open_method === 'current_window' ? t('currentTab') : t('newTab')}</span>
                     </td>
-                    <td className="favorite-cell">
+                    <td className="favorite-cell" data-label={t('favoriteColumn')}>
                       <span className={site.is_favorite ? 'status-pill favorite-pill active' : 'status-pill favorite-pill'}>
                         {site.is_favorite ? t('yes') : t('no')}
                       </span>
                     </td>
-                    <td className="sort-cell">
+                    <td className="sort-cell" data-label={t('sort')}>
                       <input
                         className="order-input"
                         type="number"
@@ -825,7 +825,7 @@ export function AdminApp() {
                         onChange={(event) => setSiteOrder({ ...siteOrder, [site.id]: Number(event.target.value) })}
                       />
                     </td>
-                    <td className="actions-cell">
+                    <td className="actions-cell" data-label={t('actions')}>
                       <div className="row-actions">
                         <button type="button" onClick={() => openEditSite(site)} title={t('editSite')}>
                           <Pencil size={16} aria-hidden="true" />
@@ -875,7 +875,7 @@ export function AdminApp() {
                     onDragOver={allowSortDrop}
                     onDrop={(event) => dropTag(event, tag.id)}
                   >
-                    <td className="drag-cell">
+                    <td className="drag-cell" data-label={t('drag')}>
                       <span
                         className="drag-handle"
                         draggable
@@ -889,20 +889,20 @@ export function AdminApp() {
                         <GripVertical size={16} aria-hidden="true" />
                       </span>
                     </td>
-                    <td className="site-cell">
+                    <td className="site-cell" data-label="Tag">
                       <strong>
                         <span className="color-swatch" style={{ background: tag.color || '#2f7d6d' }} />
                         {tag.name}
                       </strong>
                       <span>{tag.icon || t('noIcon')}</span>
                     </td>
-                    <td className="status-cell">
+                    <td className="status-cell" data-label={t('status')}>
                       <span className={tag.is_enabled ? 'status-pill active' : 'status-pill'}>
                         {tag.is_default ? t('defaultStatus') : tag.is_enabled ? t('enabledStatus') : t('disabledStatus')}
                       </span>
                     </td>
-                    <td className="count-cell">{tag.site_count}</td>
-                    <td className="sort-cell">
+                    <td className="count-cell" data-label={t('siteCount')}>{tag.site_count}</td>
+                    <td className="sort-cell" data-label={t('sort')}>
                       <input
                         className="order-input"
                         type="number"
@@ -910,7 +910,7 @@ export function AdminApp() {
                         onChange={(event) => setTagOrder({ ...tagOrder, [tag.id]: Number(event.target.value) })}
                       />
                     </td>
-                    <td className="actions-cell">
+                    <td className="actions-cell" data-label={t('actions')}>
                       <div className="row-actions">
                         {!tag.is_default && (
                           <button type="button" onClick={() => makeDefaultTag(tag.id)} title={t('setDefault')}>
