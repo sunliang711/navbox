@@ -18,6 +18,7 @@ func TestRegisterWebRoutes(t *testing.T) {
 
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.html"), []byte("<html>navbox</html>"), 0640))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "favicon.ico"), []byte("ico"), 0640))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "favicon.svg"), []byte("<svg></svg>"), 0640))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "site.webmanifest"), []byte(`{"name":"Navbox"}`), 0640))
 
@@ -32,6 +33,7 @@ func TestRegisterWebRoutes(t *testing.T) {
 		wantType   string
 	}{
 		{name: "index", path: "/", wantStatus: http.StatusOK, wantBody: "navbox"},
+		{name: "legacy favicon", path: "/favicon.ico", wantStatus: http.StatusOK, wantBody: "ico"},
 		{name: "root asset", path: "/favicon.svg", wantStatus: http.StatusOK, wantBody: "svg"},
 		{name: "manifest", path: "/site.webmanifest", wantStatus: http.StatusOK, wantBody: "Navbox", wantType: "application/manifest+json"},
 		{name: "spa fallback", path: "/admin", wantStatus: http.StatusOK, wantBody: "navbox"},

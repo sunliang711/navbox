@@ -1,25 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0b2a47"/>
-      <stop offset="1" stop-color="#061c32"/>
+      <stop stop-color="#0d2745"/>
+      <stop offset="1" stop-color="#071a31"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="20" y1="44" x2="54" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#65c9c5"/>
+      <stop offset="1" stop-color="#49b5ba"/>
     </linearGradient>
     <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity=".24"/>
     </filter>
   </defs>
   <rect x="4" y="4" width="56" height="56" rx="11" fill="url(#bg)"/>
-  <g filter="url(#soft-shadow)">
-    <rect x="17" y="15" width="8" height="8" rx="1.8" fill="#f8fafc"/>
-    <rect x="29" y="15" width="8" height="8" rx="1.8" fill="#f8fafc"/>
-    <rect x="41" y="15" width="8" height="8" rx="1.8" fill="#f8fafc"/>
-    <rect x="17" y="27" width="8" height="8" rx="1.8" fill="#f8fafc"/>
-    <rect x="29" y="27" width="8" height="8" rx="1.8" fill="#48b3b0"/>
-    <rect x="41" y="27" width="8" height="8" rx="1.8" fill="#f8fafc"/>
-    <rect x="17" y="39" width="8" height="8" rx="1.8" fill="#f8fafc"/>
-    <rect x="41" y="43" width="8" height="8" rx="1.8" fill="#f8fafc"/>
+  <rect x="17" y="17" width="38" height="37" rx="6.5" fill="none" stroke="#f8fafc" stroke-width="4.6" filter="url(#soft-shadow)"/>
+  <g fill="none" stroke="url(#arrow)" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft-shadow)">
+    <path d="M22.5 41.5L24 36L31.5 29.5L38.8 34L47.8 25"/>
   </g>
-  <path d="M29 48C30.5 40.5 35.5 38 42 38h7c5.5 0 7-4.5 7-10v-9" fill="none" stroke="#f8bd2f" stroke-width="5.3" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M56 16l6 9H50z" fill="#f8bd2f" stroke="#f8bd2f" stroke-linejoin="round"/>
-  <circle cx="28.5" cy="48.5" r="3.8" fill="#f8fafc" filter="url(#soft-shadow)"/>
+  <path d="M44.5 22.5L55 19.5L52 30.2Z" fill="url(#arrow)" stroke="url(#arrow)" stroke-linejoin="round" filter="url(#soft-shadow)"/>
+  <circle cx="22.5" cy="42" r="4" fill="url(#arrow)" filter="url(#soft-shadow)"/>
 </svg>
