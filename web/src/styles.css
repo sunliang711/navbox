@@ -1219,6 +1219,70 @@ button {
   justify-content: flex-end;
 }
 
+.mobile-only,
+.admin-mobile-list,
+.mobile-batch-dock,
+.mobile-sheet-backdrop {
+  display: none;
+}
+
+.admin-list-controls {
+  display: grid;
+  grid-template-columns: minmax(260px, 420px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-search-field,
+.admin-filter-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid #cfdad6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #60746e;
+  padding: 0 10px;
+}
+
+.admin-search-field input,
+.admin-filter-select select {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: #17201d;
+  outline: 0;
+}
+
+.admin-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-filter-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid #cbd8d4;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #213b35;
+  padding: 0 12px;
+}
+
+.admin-filter-row button.active {
+  border-color: #1f5d52;
+  background: #e1f0eb;
+  color: #143f38;
+}
+
 .admin-table-wrap {
   overflow: auto;
   border: 1px solid #d6e0dc;
@@ -1689,7 +1753,27 @@ button {
 
 @media (max-width: 780px) {
   .admin-shell {
-    padding: 14px;
+    padding: 12px 12px calc(88px + env(safe-area-inset-bottom));
+  }
+
+  .admin-shell.mobile-dock-active {
+    padding-bottom: calc(158px + env(safe-area-inset-bottom));
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: inline-flex;
+  }
+
+  .toast {
+    top: max(12px, env(safe-area-inset-top));
+    right: 14px;
+    bottom: auto;
+    left: 14px;
+    text-align: center;
   }
 
   .admin-header,
@@ -1698,23 +1782,106 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .admin-header {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .admin-header h1 {
+    font-size: 28px;
+    line-height: 1.08;
+  }
+
+  .admin-header p {
+    margin-top: 4px;
+    font-size: 13px;
+  }
+
   .admin-header-actions {
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    justify-content: stretch;
   }
 
   .admin-header-actions > button {
-    flex: 1 1 136px;
+    flex: none;
+    width: 100%;
+    min-height: 40px;
+    font-size: 14px;
+  }
+
+  .admin-header-actions > button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .admin-header-actions .preference-controls {
+    min-width: 0;
+  }
+
+  .admin-header-actions .preference-group {
+    min-height: 40px;
+    box-shadow: none;
+  }
+
+  .admin-header-actions .preference-button {
+    min-height: 32px;
+    font-size: 13px;
   }
 
   .admin-tabs {
+    position: fixed;
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 10px;
+    z-index: 25;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    margin: 0;
     overflow: visible;
+    border: 1px solid #d6e0dc;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.96);
+    padding: 6px;
+    box-shadow: 0 18px 44px rgba(23, 32, 29, 0.2);
+    backdrop-filter: blur(14px);
+  }
+
+  .admin-shell.mobile-dock-active .admin-tabs {
+    display: none;
+  }
+
+  .admin-tabs::-webkit-scrollbar,
+  .admin-actions::-webkit-scrollbar {
+    display: none;
   }
 
   .admin-tab {
+    display: grid;
+    justify-items: center;
     justify-content: center;
-    padding: 0 8px;
+    gap: 3px;
+    min-height: 50px;
+    border-color: transparent;
+    background: transparent;
+    padding: 4px 2px;
+    color: #63736e;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .admin-tab.active {
+    border-color: #2563eb;
+    background: #2563eb;
+    color: #ffffff;
+  }
+
+  .admin-tab svg {
+    width: 18px;
+    height: 18px;
   }
 
   .form-grid {
@@ -1731,14 +1898,27 @@ button {
   }
 
   .admin-actions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin: 0 -12px;
+    overflow-x: auto;
+    padding: 0 12px 2px;
     justify-content: flex-start;
+    scrollbar-width: none;
   }
 
   .admin-actions button,
   .batch-bar button {
-    width: 100%;
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  .admin-actions .primary-button {
+    min-width: 136px;
   }
 
   .batch-bar {
@@ -1750,110 +1930,274 @@ button {
     min-width: 0;
   }
 
+  .admin-list-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-search-field,
+  .admin-filter-select,
+  .admin-filter-row button {
+    min-height: 42px;
+  }
+
+  .admin-filter-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-content: stretch;
+  }
+
+  .admin-filter-row button {
+    min-width: 104px;
+  }
+
   .admin-table-wrap {
-    overflow: visible;
-    border: 0;
-    background: transparent;
-  }
-
-  .admin-table {
-    min-width: 0;
-    border-collapse: separate;
-    border-spacing: 0;
-  }
-
-  .admin-table thead {
     display: none;
   }
 
-  .admin-table tbody {
+  .admin-mobile-list {
     display: grid;
-    gap: 10px;
+    gap: 8px;
   }
 
-  .admin-table tbody tr {
+  .mobile-admin-card {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 10px 12px;
+    gap: 8px;
     border: 1px solid #d6e0dc;
     border-radius: 8px;
     background: #ffffff;
-    padding: 12px;
+    padding: 10px;
   }
 
-  .admin-table th,
-  .admin-table td {
-    border-bottom: 0;
-    padding: 0;
+  .mobile-admin-card.selected {
+    border-color: #acd3c9;
+    background: #eef7f4;
   }
 
-  .admin-table td[data-label]:not(.drag-cell):not(.site-cell):not(.actions-cell) {
+  .mobile-card-head {
     display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: minmax(82px, 30%) minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
     align-items: center;
   }
 
-  .admin-table td[data-label]:not(.drag-cell):not(.site-cell):not(.actions-cell)::before {
-    content: attr(data-label);
-    color: #60746e;
-    font-size: 12px;
+  .mobile-select-box {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 1px solid #d6e0dc;
+    border-radius: 8px;
+  }
+
+  .mobile-select-box input {
+    accent-color: #1f5d52;
+  }
+
+  .mobile-card-title {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .mobile-card-title strong {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+    color: #17201d;
+    font-size: 15px;
     font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .drag-cell {
-    grid-column: 1;
-    grid-row: 1;
-    order: 1;
-    width: auto;
-  }
-
-  .site-cell {
-    grid-column: 2;
-    grid-row: 1;
-    order: 2;
-    width: auto;
+  .mobile-card-title span,
+  .mobile-card-description {
     min-width: 0;
+    overflow: hidden;
+    color: #6a7a75;
+    font-size: 12px;
+    text-overflow: ellipsis;
   }
 
-  .actions-cell {
-    grid-column: 3;
-    grid-row: 1;
-    order: 3;
-    width: auto;
+  .mobile-card-title span {
+    white-space: nowrap;
   }
 
-  .select-cell {
-    order: 4;
-    width: auto;
+  .mobile-card-description {
+    display: -webkit-box;
+    margin: 0;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
-  .tag-cell,
-  .open-cell,
-  .favorite-cell,
-  .status-cell,
-  .count-cell,
-  .sort-cell {
-    order: 5;
-    width: auto;
+  .mobile-card-meta,
+  .mobile-card-tags,
+  .mobile-sort-controls,
+  .mobile-batch-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
-  .table-tags {
-    min-width: 0;
+  .mobile-card-meta .status-pill,
+  .mobile-card-tags .table-tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    border: 1px solid #d9e5e1;
+    border-radius: 999px;
+    background: #f7faf9;
+    color: #40534e;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
   }
 
-  .order-input {
-    width: min(100%, 110px);
+  .mobile-card-meta .status-pill.active,
+  .mobile-card-meta .favorite-pill.active {
+    border-color: #b7dbd1;
+    background: #e5f3ef;
+    color: #1f5d52;
   }
 
-  .row-actions {
+  .mobile-row-actions {
     opacity: 1;
+  }
+
+  .mobile-row-actions button {
+    width: 32px;
+    min-height: 32px;
+  }
+
+  .mobile-sort-controls button,
+  .mobile-batch-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 38px;
+    border: 1px solid #cbd8d4;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #213b35;
+    padding: 0 11px;
+  }
+
+  .mobile-sort-controls button:disabled,
+  .mobile-batch-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
+
+  .mobile-batch-dock {
+    position: fixed;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 12px;
+    z-index: 30;
+    display: grid;
+    gap: 10px;
+    border: 1px solid #cbd8d4;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 12px;
+    box-shadow: 0 18px 44px rgba(23, 32, 29, 0.22);
+  }
+
+  .mobile-batch-summary {
+    display: grid;
+    gap: 3px;
+    color: #536560;
+    font-size: 12px;
+  }
+
+  .mobile-batch-summary strong {
+    color: #17201d;
+    font-size: 14px;
+  }
+
+  .mobile-batch-actions .row-danger {
+    color: #b42318;
+  }
+
+  .mobile-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    display: flex;
+    align-items: flex-end;
+    background: rgba(12, 20, 17, 0.34);
+  }
+
+  .mobile-sheet {
+    display: grid;
+    width: 100%;
+    max-height: min(520px, calc(100vh - 56px));
+    gap: 12px;
+    overflow: auto;
+    border-radius: 14px 14px 0 0;
+    background: #ffffff;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-sheet header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .mobile-sheet h2 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .mobile-sheet header button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-height: 36px;
+    border: 1px solid #cbd8d4;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #213b35;
+  }
+
+  .mobile-sheet-options {
+    max-height: 320px;
+    overflow: auto;
+  }
+
+  .login-panel input,
+  .admin-form input,
+  .admin-form textarea,
+  .admin-form select {
+    min-height: 44px;
   }
 
   .side-panel {
     width: 100%;
+    height: 100dvh;
     padding: 16px;
+  }
+
+  .side-panel header {
+    position: sticky;
+    top: -16px;
+    z-index: 2;
+    background: #ffffff;
+    padding: 0 0 12px;
+  }
+
+  .side-panel .admin-form > .primary-button {
+    position: sticky;
+    bottom: 0;
+    min-height: 46px;
   }
 }
 
@@ -1876,6 +2220,9 @@ button {
 :root[data-theme='dark'] .preference-group,
 :root[data-theme='dark'] .tag-match-toggle,
 :root[data-theme='dark'] .admin-link,
+:root[data-theme='dark'] .admin-search-field,
+:root[data-theme='dark'] .admin-filter-select,
+:root[data-theme='dark'] .admin-filter-row button,
 :root[data-theme='dark'] .login-panel,
 :root[data-theme='dark'] .admin-table-wrap,
 :root[data-theme='dark'] .batch-bar,
@@ -1883,6 +2230,13 @@ button {
 :root[data-theme='dark'] .narrow-section,
 :root[data-theme='dark'] .admin-state,
 :root[data-theme='dark'] .side-panel,
+:root[data-theme='dark'] .mobile-admin-card,
+:root[data-theme='dark'] .mobile-batch-dock,
+:root[data-theme='dark'] .mobile-sheet,
+:root[data-theme='dark'] .mobile-sheet header button,
+:root[data-theme='dark'] .mobile-select-box,
+:root[data-theme='dark'] .mobile-sort-controls button,
+:root[data-theme='dark'] .mobile-batch-actions button,
 :root[data-theme='dark'] .checkbox-list label,
 :root[data-theme='dark'] .checkbox-row label,
 :root[data-theme='dark'] .checkbox-line,
@@ -1909,6 +2263,8 @@ button {
 :root[data-theme='dark'] .admin-form input,
 :root[data-theme='dark'] .admin-form textarea,
 :root[data-theme='dark'] .admin-form select,
+:root[data-theme='dark'] .admin-search-field input,
+:root[data-theme='dark'] .admin-filter-select select,
 :root[data-theme='dark'] .order-input {
   border-color: #334155;
   background: #0b1220;
@@ -1919,12 +2275,21 @@ button {
   color: #64748b;
 }
 
+:root[data-theme='dark'] .admin-search-field input,
+:root[data-theme='dark'] .admin-filter-select select {
+  border: 0;
+  background: transparent;
+}
+
 :root[data-theme='dark'] .visitor-section-head h1,
 :root[data-theme='dark'] .site-title-row h2,
 :root[data-theme='dark'] .login-panel h1,
 :root[data-theme='dark'] .admin-header h1,
 :root[data-theme='dark'] .admin-tool-panel h2,
 :root[data-theme='dark'] .side-panel h2,
+:root[data-theme='dark'] .mobile-card-title strong,
+:root[data-theme='dark'] .mobile-batch-summary strong,
+:root[data-theme='dark'] .mobile-sheet h2,
 :root[data-theme='dark'] .admin-table td strong {
   color: #f8fafc;
 }
@@ -1961,6 +2326,9 @@ button {
 :root[data-theme='dark'] .site-copy p,
 :root[data-theme='dark'] .admin-header p,
 :root[data-theme='dark'] .admin-table td span,
+:root[data-theme='dark'] .mobile-card-title span,
+:root[data-theme='dark'] .mobile-card-description,
+:root[data-theme='dark'] .mobile-batch-summary,
 :root[data-theme='dark'] .form-note,
 :root[data-theme='dark'] .report-box,
 :root[data-theme='dark'] .admin-state {
@@ -1970,6 +2338,8 @@ button {
 :root[data-theme='dark'] .filter-pill,
 :root[data-theme='dark'] .toolbar-toggle,
 :root[data-theme='dark'] .admin-link,
+:root[data-theme='dark'] .admin-search-field,
+:root[data-theme='dark'] .admin-filter-select,
 :root[data-theme='dark'] .preference-button,
 :root[data-theme='dark'] .tag-match-toggle button,
 :root[data-theme='dark'] .icon-button,
@@ -1983,6 +2353,7 @@ button {
 :root[data-theme='dark'] .tag-match-toggle button:hover,
 :root[data-theme='dark'] .icon-button:hover,
 :root[data-theme='dark'] .admin-link:hover,
+:root[data-theme='dark'] .admin-filter-row button:hover,
 :root[data-theme='dark'] .site-menu-button:hover,
 :root[data-theme='dark'] .site-card-wrap:hover .site-menu-button,
 :root[data-theme='dark'] .site-context-menu button:hover,
@@ -1994,7 +2365,8 @@ button {
 
 :root[data-theme='dark'] .filter-pill.active,
 :root[data-theme='dark'] .preference-button.active,
-:root[data-theme='dark'] .tag-match-toggle button.active {
+:root[data-theme='dark'] .tag-match-toggle button.active,
+:root[data-theme='dark'] .admin-filter-row button.active {
   border-color: #2563eb;
   background: #1d4ed8;
   color: #ffffff;
@@ -2145,6 +2517,21 @@ button {
   color: #bfdbfe;
 }
 
+:root[data-theme='dark'] .mobile-card-meta .status-pill,
+:root[data-theme='dark'] .mobile-card-tags .table-tag {
+  border-color: #334155;
+  background: #172033;
+  color: #cbd5e1;
+}
+
+:root[data-theme='dark'] .mobile-card-meta .status-pill.active,
+:root[data-theme='dark'] .mobile-card-meta .favorite-pill.active,
+:root[data-theme='dark'] .mobile-admin-card.selected {
+  border-color: #1d4ed8;
+  background: #172554;
+  color: #bfdbfe;
+}
+
 :root[data-theme='dark'] .order-input:hover,
 :root[data-theme='dark'] .order-input:focus {
   border-color: #475569;
@@ -2185,6 +2572,36 @@ button {
 }
 
 @media (max-width: 780px) {
+  :root[data-theme='dark'] .side-panel header {
+    background: #0f172a;
+  }
+
+  :root[data-theme='dark'] .admin-tabs {
+    border-color: #263449;
+    background: rgba(15, 23, 42, 0.96);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+  }
+
+  :root[data-theme='dark'] .admin-tab {
+    border-color: transparent;
+    background: transparent;
+    color: #94a3b8;
+  }
+
+  :root[data-theme='dark'] .admin-tab.active {
+    border-color: #2563eb;
+    background: #2563eb;
+    color: #ffffff;
+  }
+
+  :root[data-theme='dark'] .mobile-admin-card,
+  :root[data-theme='dark'] .mobile-batch-dock,
+  :root[data-theme='dark'] .mobile-select-box,
+  :root[data-theme='dark'] .mobile-sort-controls button,
+  :root[data-theme='dark'] .mobile-batch-actions button {
+    border-color: #263449;
+  }
+
   :root[data-theme='dark'] .admin-table-wrap {
     border: 0;
     background: transparent;
@@ -2197,5 +2614,9 @@ button {
 
   :root[data-theme='dark'] .admin-table td[data-label]:not(.drag-cell):not(.site-cell):not(.actions-cell)::before {
     color: #94a3b8;
+  }
+
+  :root[data-theme='dark'] .mobile-sheet-backdrop {
+    background: rgba(2, 6, 23, 0.72);
   }
 }

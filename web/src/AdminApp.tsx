@@ -1,4 +1,6 @@
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
   Download,
   FileUp,
@@ -10,6 +12,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  Search,
   Settings,
   Shield,
   Tags,
@@ -49,6 +52,7 @@ import type { ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from
 
 type AdminTab = 'sites' | 'tags' | 'io' | 'password';
 type ExportMode = 'all' | 'sites' | 'tags';
+type FavoriteFilter = 'all' | 'favorites';
 
 const emptySiteForm: SiteSaveReq = {
   title: '',
@@ -81,6 +85,9 @@ export function AdminApp() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [tab, setTab] = useState<AdminTab>('sites');
+  const [adminSearch, setAdminSearch] = useState('');
+  const [siteTagFilterId, setSiteTagFilterId] = useState('all');
+  const [siteFavoriteFilter, setSiteFavoriteFilter] = useState<FavoriteFilter>('all');
   const [sites, setSites] = useState<Site[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,6 +108,10 @@ export function AdminApp() {
   const [tagOrder, setTagOrder] = useState<Record<string, number>>({});
   const [draggingSiteId, setDraggingSiteId] = useState('');
   const [draggingTagId, setDraggingTagId] = useState('');
+  const [siteSelectionMode, setSiteSelectionMode] = useState(false);
+  const [mobileSiteSortMode, setMobileSiteSortMode] = useState(false);
+  const [mobileTagSortMode, setMobileTagSortMode] = useState(false);
+  const [mobileBatchTagsOpen, setMobileBatchTagsOpen] = useState(false);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '' });
   const [restoreForm, setRestoreForm] = useState({ token: '', next: '', confirm: '' });
@@ -159,10 +170,47 @@ export function AdminApp() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    setMobileBatchTagsOpen(false);
+    setMobileSiteSortMode(false);
+    setMobileTagSortMode(false);
+  }, [tab]);
+
   const selectedSiteSet = useMemo(() => new Set(selectedSiteIds), [selectedSiteIds]);
   const batchTagSet = useMemo(() => new Set(batchTagIds), [batchTagIds]);
   const exportSiteSet = useMemo(() => new Set(exportSiteIds), [exportSiteIds]);
   const exportTagSet = useMemo(() => new Set(exportTagIds), [exportTagIds]);
+  const normalizedAdminSearch = adminSearch.trim().toLocaleLowerCase();
+  const filteredSites = useMemo(() => {
+    return sites.filter((site) => {
+      if (siteTagFilterId !== 'all' && !site.tags.some((tag) => tag.id === siteTagFilterId)) {
+        return false;
+      }
+      if (siteFavoriteFilter === 'favorites' && !site.is_favorite) {
+        return false;
+      }
+      if (!normalizedAdminSearch) {
+        return true;
+      }
+      return [
+        site.title,
+        site.description,
+        site.default_url,
+        site.lan_url,
+        site.open_method,
+        ...site.tags.map((tag) => tag.name)
+      ].some((value) => value.toLocaleLowerCase().includes(normalizedAdminSearch));
+    });
+  }, [sites, siteTagFilterId, siteFavoriteFilter, normalizedAdminSearch]);
+  const filteredTags = useMemo(() => {
+    if (!normalizedAdminSearch) {
+      return tags;
+    }
+    return tags.filter((tag) =>
+      [tag.name, tag.icon, tag.is_default ? t('defaultStatus') : tag.is_enabled ? t('enabledStatus') : t('disabledStatus')]
+        .some((value) => value.toLocaleLowerCase().includes(normalizedAdminSearch))
+    );
+  }, [tags, normalizedAdminSearch, t]);
 
   function handleAdminError(error: unknown): boolean {
     if (!isUnauthorizedError(error)) {
@@ -175,6 +223,8 @@ export function AdminApp() {
     setTagPanelOpen(false);
     setSelectedSiteIds([]);
     setBatchTagIds([]);
+    setSiteSelectionMode(false);
+    setMobileBatchTagsOpen(false);
     setExportSiteIds([]);
     setExportTagIds([]);
     return true;
@@ -486,6 +536,9 @@ export function AdminApp() {
     try {
       await batchDeleteSites(selectedSiteIds);
       setSelectedSiteIds([]);
+      setBatchTagIds([]);
+      setSiteSelectionMode(false);
+      setMobileBatchTagsOpen(false);
       setNotice(t('batchDeleteDone'));
       await refreshData();
     } catch (error) {
@@ -503,6 +556,7 @@ export function AdminApp() {
     try {
       await batchUpdateSiteTags(selectedSiteIds, batchTagIds, action);
       setNotice(action === 'add' ? t('batchAddTagDone') : t('batchRemoveTagDone'));
+      setMobileBatchTagsOpen(false);
       await refreshData();
     } catch (error) {
       if (!handleAdminError(error)) {
@@ -605,6 +659,59 @@ export function AdminApp() {
     setter(current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
+  function clearSiteSelection() {
+    setSelectedSiteIds([]);
+    setBatchTagIds([]);
+    setSiteSelectionMode(false);
+    setMobileBatchTagsOpen(false);
+  }
+
+  async function moveSiteByStep(siteId: string, direction: -1 | 1) {
+    const currentIndex = filteredSites.findIndex((site) => site.id === siteId);
+    const target = filteredSites[currentIndex + direction];
+    if (currentIndex < 0 || !target) {
+      return;
+    }
+
+    const nextSites = swapItemsById(sites, siteId, target.id);
+    const nextOrder = buildSequentialOrder(nextSites);
+    setSites(nextSites);
+    setSiteOrder(nextOrder);
+    try {
+      await updateSiteOrder(toOrderItems(nextOrder));
+      setNotice(t('siteOrderUpdated'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        setNotice(t('siteOrderUpdateFailed'));
+        await refreshData();
+      }
+    }
+  }
+
+  async function moveTagByStep(tagId: string, direction: -1 | 1) {
+    const currentIndex = filteredTags.findIndex((tag) => tag.id === tagId);
+    const target = filteredTags[currentIndex + direction];
+    if (currentIndex < 0 || !target) {
+      return;
+    }
+
+    const nextTags = swapItemsById(tags, tagId, target.id);
+    const nextOrder = buildSequentialOrder(nextTags);
+    setTags(nextTags);
+    setTagOrder(nextOrder);
+    try {
+      await updateTagOrder(toOrderItems(nextOrder));
+      setNotice(t('tagOrderUpdated'));
+      await refreshData();
+    } catch (error) {
+      if (!handleAdminError(error)) {
+        setNotice(t('tagOrderUpdateFailed'));
+        await refreshData();
+      }
+    }
+  }
+
   if (checking) {
     return <AdminState text={t('checkingSession')} />;
   }
@@ -693,7 +800,7 @@ export function AdminApp() {
   }
 
   return (
-    <main className="admin-shell">
+    <main className={tab === 'sites' && selectedSiteIds.length > 0 ? 'admin-shell mobile-dock-active' : 'admin-shell'}>
       <header className="admin-header">
         <div>
           <h1>{t('navboxAdmin')}</h1>
@@ -732,11 +839,30 @@ export function AdminApp() {
               <Save size={17} aria-hidden="true" />
               {t('saveOrder')}
             </button>
-            <button type="button" onClick={handleBatchDelete} disabled={selectedSiteIds.length === 0}>
+            <button className="mobile-only" type="button" onClick={() => setSiteSelectionMode((current) => !current)}>
+              <Check size={17} aria-hidden="true" />
+              {siteSelectionMode ? t('done') : t('batchMode')}
+            </button>
+            <button className="mobile-only" type="button" onClick={() => setMobileSiteSortMode((current) => !current)}>
+              <GripVertical size={17} aria-hidden="true" />
+              {mobileSiteSortMode ? t('done') : t('sortMode')}
+            </button>
+            <button className="desktop-only" type="button" onClick={handleBatchDelete} disabled={selectedSiteIds.length === 0}>
               <Trash2 size={17} aria-hidden="true" />
               {t('batchDelete')}
             </button>
           </div>
+
+          <AdminListControls
+            search={adminSearch}
+            onSearchChange={setAdminSearch}
+            tags={tags}
+            tagFilterId={siteTagFilterId}
+            onTagFilterChange={setSiteTagFilterId}
+            favoriteFilter={siteFavoriteFilter}
+            onFavoriteFilterChange={setSiteFavoriteFilter}
+            mode="sites"
+          />
 
           <BatchTagBar
             tags={tags}
@@ -747,6 +873,10 @@ export function AdminApp() {
             onRemove={() => handleBatchTags('remove')}
           />
 
+          {filteredSites.length === 0 ? (
+            <AdminState text={t('noSites')} />
+          ) : (
+            <>
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead>
@@ -762,7 +892,7 @@ export function AdminApp() {
                 </tr>
               </thead>
               <tbody>
-                {sites.map((site) => (
+                {filteredSites.map((site) => (
                   <tr
                     className={[
                       draggingSiteId === site.id ? 'dragging-row' : '',
@@ -840,6 +970,43 @@ export function AdminApp() {
               </tbody>
             </table>
           </div>
+          <div className="admin-mobile-list">
+            {filteredSites.map((site, index) => (
+              <MobileSiteCard
+                key={site.id}
+                site={site}
+                selected={selectedSiteSet.has(site.id)}
+                selectionMode={siteSelectionMode}
+                sortMode={mobileSiteSortMode}
+                canMoveUp={index > 0}
+                canMoveDown={index < filteredSites.length - 1}
+                onToggleSelection={() => toggleSiteSelection(site.id)}
+                onEdit={() => openEditSite(site)}
+                onDelete={() => removeSite(site.id)}
+                onMoveUp={() => moveSiteByStep(site.id, -1)}
+                onMoveDown={() => moveSiteByStep(site.id, 1)}
+              />
+            ))}
+          </div>
+            </>
+          )}
+          <MobileBatchDock
+            tags={tags}
+            selectedTagCount={batchTagIds.length}
+            selectedSiteCount={selectedSiteIds.length}
+            onOpenTags={() => setMobileBatchTagsOpen(true)}
+            onAdd={() => handleBatchTags('add')}
+            onRemove={() => handleBatchTags('remove')}
+            onDelete={handleBatchDelete}
+            onClear={clearSiteSelection}
+          />
+          <MobileTagSheet
+            open={mobileBatchTagsOpen}
+            tags={tags}
+            selected={batchTagSet}
+            onToggle={(id) => toggleString(batchTagIds, id, setBatchTagIds)}
+            onClose={() => setMobileBatchTagsOpen(false)}
+          />
         </section>
       )}
 
@@ -854,7 +1021,25 @@ export function AdminApp() {
               <Save size={17} aria-hidden="true" />
               {t('saveOrder')}
             </button>
+            <button className="mobile-only" type="button" onClick={() => setMobileTagSortMode((current) => !current)}>
+              <GripVertical size={17} aria-hidden="true" />
+              {mobileTagSortMode ? t('done') : t('sortMode')}
+            </button>
           </div>
+          <AdminListControls
+            search={adminSearch}
+            onSearchChange={setAdminSearch}
+            tags={tags}
+            tagFilterId={siteTagFilterId}
+            onTagFilterChange={setSiteTagFilterId}
+            favoriteFilter={siteFavoriteFilter}
+            onFavoriteFilterChange={setSiteFavoriteFilter}
+            mode="tags"
+          />
+          {filteredTags.length === 0 ? (
+            <AdminState text={t('noTags')} />
+          ) : (
+            <>
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead>
@@ -868,7 +1053,7 @@ export function AdminApp() {
                 </tr>
               </thead>
               <tbody>
-                {tags.map((tag) => (
+                {filteredTags.map((tag) => (
                   <tr
                     className={draggingTagId === tag.id ? 'dragging-row' : undefined}
                     key={tag.id}
@@ -930,6 +1115,24 @@ export function AdminApp() {
               </tbody>
             </table>
           </div>
+          <div className="admin-mobile-list">
+            {filteredTags.map((tag, index) => (
+              <MobileTagCard
+                key={tag.id}
+                tag={tag}
+                sortMode={mobileTagSortMode}
+                canMoveUp={index > 0}
+                canMoveDown={index < filteredTags.length - 1}
+                onSetDefault={() => makeDefaultTag(tag.id)}
+                onEdit={() => openEditTag(tag)}
+                onDelete={() => removeTag(tag.id)}
+                onMoveUp={() => moveTagByStep(tag.id, -1)}
+                onMoveDown={() => moveTagByStep(tag.id, 1)}
+              />
+            ))}
+          </div>
+            </>
+          )}
         </section>
       )}
 
@@ -1112,6 +1315,305 @@ export function AdminApp() {
   );
 }
 
+function AdminListControls({
+  search,
+  onSearchChange,
+  tags,
+  tagFilterId,
+  onTagFilterChange,
+  favoriteFilter,
+  onFavoriteFilterChange,
+  mode
+}: {
+  search: string;
+  onSearchChange: (value: string) => void;
+  tags: Tag[];
+  tagFilterId: string;
+  onTagFilterChange: (value: string) => void;
+  favoriteFilter: FavoriteFilter;
+  onFavoriteFilterChange: (value: FavoriteFilter) => void;
+  mode: 'sites' | 'tags';
+}) {
+  const { t } = usePreferences();
+
+  return (
+    <div className="admin-list-controls">
+      <label className="admin-search-field">
+        <Search size={17} aria-hidden="true" />
+        <input
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder={t('adminSearchPlaceholder')}
+          aria-label={t('adminSearch')}
+        />
+      </label>
+      {mode === 'sites' && (
+        <div className="admin-filter-row">
+          <label className="admin-filter-select">
+            <Tags size={16} aria-hidden="true" />
+            <select value={tagFilterId} onChange={(event) => onTagFilterChange(event.target.value)} aria-label={t('tagFilter')}>
+              <option value="all">{t('allTags')}</option>
+              {tags.map((tag) => (
+                <option key={tag.id} value={tag.id}>{tag.name}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            className={favoriteFilter === 'favorites' ? 'active' : undefined}
+            type="button"
+            onClick={() => onFavoriteFilterChange(favoriteFilter === 'favorites' ? 'all' : 'favorites')}
+          >
+            {favoriteFilter === 'favorites' ? t('favoritesOnly') : t('allSitesFilter')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MobileSiteCard({
+  site,
+  selected,
+  selectionMode,
+  sortMode,
+  canMoveUp,
+  canMoveDown,
+  onToggleSelection,
+  onEdit,
+  onDelete,
+  onMoveUp,
+  onMoveDown
+}: {
+  site: Site;
+  selected: boolean;
+  selectionMode: boolean;
+  sortMode: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onToggleSelection: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const { t } = usePreferences();
+
+  return (
+    <article className={selected ? 'mobile-admin-card selected' : 'mobile-admin-card'}>
+      <div className="mobile-card-head">
+        {(selectionMode || selected) && (
+          <label className="mobile-select-box">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelection}
+              aria-label={t('selectSite', { title: site.title })}
+            />
+          </label>
+        )}
+        <div className="mobile-card-title">
+          <strong>{site.title}</strong>
+          <span>{site.default_url}</span>
+        </div>
+        <div className="row-actions mobile-row-actions">
+          <button type="button" onClick={onEdit} title={t('editSite')}>
+            <Pencil size={16} aria-hidden="true" />
+          </button>
+          <button className="row-danger" type="button" onClick={onDelete} title={t('deleteSite')}>
+            <Trash2 size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+      {site.description && <p className="mobile-card-description">{site.description}</p>}
+      <div className="mobile-card-meta">
+        <span className="status-pill">{site.open_method === 'current_window' ? t('currentTab') : t('newTab')}</span>
+        <span className={site.is_favorite ? 'status-pill favorite-pill active' : 'status-pill favorite-pill'}>
+          {site.is_favorite ? t('favorite') : t('no')}
+        </span>
+        <span className="status-pill">{t('sort')}: {site.sort_order}</span>
+      </div>
+      <div className="table-tags mobile-card-tags">
+        {site.tags.length > 0 ? (
+          site.tags.map((tag) => (
+            <span className="table-tag" key={tag.id}>{tag.name}</span>
+          ))
+        ) : (
+          <span className="table-tag muted">{t('uncategorized')}</span>
+        )}
+      </div>
+      {sortMode && (
+        <div className="mobile-sort-controls">
+          <button type="button" onClick={onMoveUp} disabled={!canMoveUp}>
+            <ArrowUp size={16} aria-hidden="true" />
+            {t('moveUp')}
+          </button>
+          <button type="button" onClick={onMoveDown} disabled={!canMoveDown}>
+            <ArrowDown size={16} aria-hidden="true" />
+            {t('moveDown')}
+          </button>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function MobileTagCard({
+  tag,
+  sortMode,
+  canMoveUp,
+  canMoveDown,
+  onSetDefault,
+  onEdit,
+  onDelete,
+  onMoveUp,
+  onMoveDown
+}: {
+  tag: Tag;
+  sortMode: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onSetDefault: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const { t } = usePreferences();
+
+  return (
+    <article className="mobile-admin-card">
+      <div className="mobile-card-head">
+        <div className="mobile-card-title">
+          <strong>
+            <span className="color-swatch" style={{ background: tag.color || '#2f7d6d' }} />
+            {tag.name}
+          </strong>
+          <span>{tag.icon || t('noIcon')}</span>
+        </div>
+        <div className="row-actions mobile-row-actions">
+          {!tag.is_default && (
+            <button type="button" onClick={onSetDefault} title={t('setDefault')}>
+              <Check size={16} aria-hidden="true" />
+            </button>
+          )}
+          <button type="button" onClick={onEdit} title={t('editTag')}>
+            <Pencil size={16} aria-hidden="true" />
+          </button>
+          <button className="row-danger" type="button" onClick={onDelete} title={t('deleteTag')}>
+            <Trash2 size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+      <div className="mobile-card-meta">
+        <span className={tag.is_enabled ? 'status-pill active' : 'status-pill'}>
+          {tag.is_default ? t('defaultStatus') : tag.is_enabled ? t('enabledStatus') : t('disabledStatus')}
+        </span>
+        <span className="status-pill">{t('siteCount')}: {tag.site_count}</span>
+        <span className="status-pill">{t('sort')}: {tag.sort_order}</span>
+      </div>
+      {sortMode && (
+        <div className="mobile-sort-controls">
+          <button type="button" onClick={onMoveUp} disabled={!canMoveUp}>
+            <ArrowUp size={16} aria-hidden="true" />
+            {t('moveUp')}
+          </button>
+          <button type="button" onClick={onMoveDown} disabled={!canMoveDown}>
+            <ArrowDown size={16} aria-hidden="true" />
+            {t('moveDown')}
+          </button>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function MobileBatchDock({
+  tags,
+  selectedTagCount,
+  selectedSiteCount,
+  onOpenTags,
+  onAdd,
+  onRemove,
+  onDelete,
+  onClear
+}: {
+  tags: Tag[];
+  selectedTagCount: number;
+  selectedSiteCount: number;
+  onOpenTags: () => void;
+  onAdd: () => void;
+  onRemove: () => void;
+  onDelete: () => void;
+  onClear: () => void;
+}) {
+  const { t } = usePreferences();
+  if (selectedSiteCount === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mobile-batch-dock">
+      <div className="mobile-batch-summary">
+        <strong>{t('selectedCount', { count: selectedSiteCount })}</strong>
+        <span>{selectedTagCount > 0 ? t('selectedTagsCount', { count: selectedTagCount }) : t('chooseBatchTags')}</span>
+      </div>
+      <div className="mobile-batch-actions">
+        <button type="button" onClick={onOpenTags} disabled={tags.length === 0}>
+          <Tags size={16} aria-hidden="true" />
+          {t('selectBatchTags')}
+        </button>
+        <button type="button" onClick={onAdd} disabled={selectedTagCount === 0}>{t('batchAddTag')}</button>
+        <button type="button" onClick={onRemove} disabled={selectedTagCount === 0}>{t('batchRemoveTag')}</button>
+        <button className="row-danger" type="button" onClick={onDelete}>
+          <Trash2 size={16} aria-hidden="true" />
+        </button>
+        <button type="button" onClick={onClear}>{t('clearSelection')}</button>
+      </div>
+    </div>
+  );
+}
+
+function MobileTagSheet({
+  open,
+  tags,
+  selected,
+  onToggle,
+  onClose
+}: {
+  open: boolean;
+  tags: Tag[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  onClose: () => void;
+}) {
+  const { t } = usePreferences();
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="mobile-sheet-backdrop" onClick={onClose}>
+      <section className="mobile-sheet" onClick={(event) => event.stopPropagation()}>
+        <header>
+          <h2>{t('batchTagSheetTitle')}</h2>
+          <button type="button" onClick={onClose} title={t('close')}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="checkbox-list mobile-sheet-options">
+          {tags.map((tag) => (
+            <label key={tag.id}>
+              <input type="checkbox" checked={selected.has(tag.id)} onChange={() => onToggle(tag.id)} />
+              <span>{tag.name}</span>
+            </label>
+          ))}
+        </div>
+        <button className="primary-button" type="button" onClick={onClose}>{t('done')}</button>
+      </section>
+    </div>
+  );
+}
+
 function AdminTabButton({
   active,
   icon: Icon,
@@ -1150,7 +1652,7 @@ function BatchTagBar({
   const actionDisabled = selectedSiteCount === 0 || selected.size === 0;
 
   return (
-    <div className="batch-bar">
+    <div className="batch-bar desktop-only">
       <div className="batch-summary">{t('selectedCount', { count: selectedSiteCount })}</div>
       <div className="checkbox-list compact">
         {tags.map((tag) => (
@@ -1364,6 +1866,18 @@ function toOrderItems(values: Record<string, number>): OrderItem[] {
 
 function buildSequentialOrder<T extends { id: string }>(items: T[]): Record<string, number> {
   return Object.fromEntries(items.map((item, index) => [item.id, (index + 1) * 10]));
+}
+
+function swapItemsById<T extends { id: string }>(items: T[], sourceId: string, targetId: string): T[] {
+  const sourceIndex = items.findIndex((item) => item.id === sourceId);
+  const targetIndex = items.findIndex((item) => item.id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0) {
+    return items;
+  }
+
+  const next = [...items];
+  [next[sourceIndex], next[targetIndex]] = [next[targetIndex], next[sourceIndex]];
+  return next;
 }
 
 function moveItemById<T extends { id: string }>(items: T[], sourceId: string, targetId: string): T[] {
