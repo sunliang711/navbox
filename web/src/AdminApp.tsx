@@ -8,6 +8,7 @@ import {
   KeyRound,
   LogIn,
   LogOut,
+  MoreHorizontal,
   Pencil,
   Plus,
   RefreshCw,
@@ -112,6 +113,9 @@ export function AdminApp() {
   const [mobileSiteSortMode, setMobileSiteSortMode] = useState(false);
   const [mobileTagSortMode, setMobileTagSortMode] = useState(false);
   const [mobileBatchTagsOpen, setMobileBatchTagsOpen] = useState(false);
+  const [mobileAdminMenuOpen, setMobileAdminMenuOpen] = useState(false);
+  const [mobileSiteActionsOpen, setMobileSiteActionsOpen] = useState(false);
+  const [mobileTagActionsOpen, setMobileTagActionsOpen] = useState(false);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '' });
   const [restoreForm, setRestoreForm] = useState({ token: '', next: '', confirm: '' });
@@ -172,6 +176,9 @@ export function AdminApp() {
 
   useEffect(() => {
     setMobileBatchTagsOpen(false);
+    setMobileAdminMenuOpen(false);
+    setMobileSiteActionsOpen(false);
+    setMobileTagActionsOpen(false);
     setMobileSiteSortMode(false);
     setMobileTagSortMode(false);
   }, [tab]);
@@ -225,6 +232,9 @@ export function AdminApp() {
     setBatchTagIds([]);
     setSiteSelectionMode(false);
     setMobileBatchTagsOpen(false);
+    setMobileAdminMenuOpen(false);
+    setMobileSiteActionsOpen(false);
+    setMobileTagActionsOpen(false);
     setExportSiteIds([]);
     setExportTagIds([]);
     return true;
@@ -806,7 +816,11 @@ export function AdminApp() {
           <h1>{t('navboxAdmin')}</h1>
           <p>{t('adminStats', { sites: sites.length, tags: tags.length })}</p>
         </div>
-        <div className="admin-header-actions">
+        <button className="mobile-admin-menu-trigger" type="button" onClick={() => setMobileAdminMenuOpen(true)} title={t('adminQuickMenu')}>
+          <MoreHorizontal size={19} aria-hidden="true" />
+          <span>{t('more')}</span>
+        </button>
+        <div className="admin-header-actions desktop-admin-actions">
           <PreferenceControls />
           <button type="button" onClick={() => (window.location.href = '/')}>
             {t('visitorHome')}
@@ -818,11 +832,18 @@ export function AdminApp() {
         </div>
       </header>
 
+      <MobileAdminMenu
+        open={mobileAdminMenuOpen}
+        onClose={() => setMobileAdminMenuOpen(false)}
+        onHome={() => (window.location.href = '/')}
+        onLogout={handleLogout}
+      />
+
       <nav className="admin-tabs" aria-label={t('adminModules')}>
-        <AdminTabButton active={tab === 'sites'} onClick={() => setTab('sites')} icon={Settings} label={t('sitesTab')} />
-        <AdminTabButton active={tab === 'tags'} onClick={() => setTab('tags')} icon={Tags} label={t('tagsTab')} />
-        <AdminTabButton active={tab === 'io'} onClick={() => setTab('io')} icon={FileUp} label={t('importExportTab')} />
-        <AdminTabButton active={tab === 'password'} onClick={() => setTab('password')} icon={KeyRound} label={t('passwordTab')} />
+        <AdminTabButton active={tab === 'sites'} onClick={() => setTab('sites')} icon={Settings} label={t('sitesTab')} mobileLabel={t('sitesTab')} />
+        <AdminTabButton active={tab === 'tags'} onClick={() => setTab('tags')} icon={Tags} label={t('tagsTab')} mobileLabel={t('tagsTab')} />
+        <AdminTabButton active={tab === 'io'} onClick={() => setTab('io')} icon={FileUp} label={t('importExportTab')} mobileLabel={t('importShortTab')} />
+        <AdminTabButton active={tab === 'password'} onClick={() => setTab('password')} icon={KeyRound} label={t('passwordTab')} mobileLabel={t('passwordTab')} />
       </nav>
 
       {notice && <div className="toast">{notice}</div>}
@@ -835,23 +856,43 @@ export function AdminApp() {
               <Plus size={17} aria-hidden="true" />
               {t('newSite')}
             </button>
-            <button type="button" onClick={saveSiteOrder}>
+            <button className="desktop-only" type="button" onClick={saveSiteOrder}>
               <Save size={17} aria-hidden="true" />
               {t('saveOrder')}
             </button>
-            <button className="mobile-only" type="button" onClick={() => setSiteSelectionMode((current) => !current)}>
-              <Check size={17} aria-hidden="true" />
-              {siteSelectionMode ? t('done') : t('batchMode')}
-            </button>
-            <button className="mobile-only" type="button" onClick={() => setMobileSiteSortMode((current) => !current)}>
-              <GripVertical size={17} aria-hidden="true" />
-              {mobileSiteSortMode ? t('done') : t('sortMode')}
+            <button className="mobile-only mobile-more-action" type="button" onClick={() => setMobileSiteActionsOpen(true)}>
+              <MoreHorizontal size={17} aria-hidden="true" />
+              {t('more')}
             </button>
             <button className="desktop-only" type="button" onClick={handleBatchDelete} disabled={selectedSiteIds.length === 0}>
               <Trash2 size={17} aria-hidden="true" />
               {t('batchDelete')}
             </button>
           </div>
+
+          <MobileActionMenu open={mobileSiteActionsOpen} title={t('siteActions')} onClose={() => setMobileSiteActionsOpen(false)}>
+            <button type="button" onClick={() => {
+              setMobileSiteActionsOpen(false);
+              saveSiteOrder();
+            }}>
+              <Save size={17} aria-hidden="true" />
+              {t('saveOrder')}
+            </button>
+            <button type="button" onClick={() => {
+              setSiteSelectionMode((current) => !current);
+              setMobileSiteActionsOpen(false);
+            }}>
+              <Check size={17} aria-hidden="true" />
+              {siteSelectionMode ? t('done') : t('batchMode')}
+            </button>
+            <button type="button" onClick={() => {
+              setMobileSiteSortMode((current) => !current);
+              setMobileSiteActionsOpen(false);
+            }}>
+              <GripVertical size={17} aria-hidden="true" />
+              {mobileSiteSortMode ? t('done') : t('sortMode')}
+            </button>
+          </MobileActionMenu>
 
           <AdminListControls
             search={adminSearch}
@@ -1017,15 +1058,31 @@ export function AdminApp() {
               <Plus size={17} aria-hidden="true" />
               {t('newTag')}
             </button>
-            <button type="button" onClick={saveTagOrder}>
+            <button className="desktop-only" type="button" onClick={saveTagOrder}>
               <Save size={17} aria-hidden="true" />
               {t('saveOrder')}
             </button>
-            <button className="mobile-only" type="button" onClick={() => setMobileTagSortMode((current) => !current)}>
+            <button className="mobile-only mobile-more-action" type="button" onClick={() => setMobileTagActionsOpen(true)}>
+              <MoreHorizontal size={17} aria-hidden="true" />
+              {t('more')}
+            </button>
+          </div>
+          <MobileActionMenu open={mobileTagActionsOpen} title={t('tagActions')} onClose={() => setMobileTagActionsOpen(false)}>
+            <button type="button" onClick={() => {
+              setMobileTagActionsOpen(false);
+              saveTagOrder();
+            }}>
+              <Save size={17} aria-hidden="true" />
+              {t('saveOrder')}
+            </button>
+            <button type="button" onClick={() => {
+              setMobileTagSortMode((current) => !current);
+              setMobileTagActionsOpen(false);
+            }}>
               <GripVertical size={17} aria-hidden="true" />
               {mobileTagSortMode ? t('done') : t('sortMode')}
             </button>
-          </div>
+          </MobileActionMenu>
           <AdminListControls
             search={adminSearch}
             onSearchChange={setAdminSearch}
@@ -1312,6 +1369,79 @@ export function AdminApp() {
         </SidePanel>
       )}
     </main>
+  );
+}
+
+function MobileAdminMenu({
+  open,
+  onClose,
+  onHome,
+  onLogout
+}: {
+  open: boolean;
+  onClose: () => void;
+  onHome: () => void;
+  onLogout: () => void;
+}) {
+  const { t } = usePreferences();
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="mobile-sheet-backdrop" onClick={onClose}>
+      <section className="mobile-sheet mobile-admin-menu" onClick={(event) => event.stopPropagation()}>
+        <header>
+          <h2>{t('adminQuickMenu')}</h2>
+          <button type="button" onClick={onClose} title={t('close')}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+        <PreferenceControls />
+        <div className="mobile-sheet-actions">
+          <button type="button" onClick={onHome}>
+            {t('visitorHome')}
+          </button>
+          <button type="button" onClick={onLogout}>
+            <LogOut size={17} aria-hidden="true" />
+            {t('logout')}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MobileActionMenu({
+  open,
+  title,
+  children,
+  onClose
+}: {
+  open: boolean;
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  const { t } = usePreferences();
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="mobile-sheet-backdrop" onClick={onClose}>
+      <section className="mobile-sheet mobile-action-menu" onClick={(event) => event.stopPropagation()}>
+        <header>
+          <h2>{title}</h2>
+          <button type="button" onClick={onClose} title={t('close')}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="mobile-sheet-actions">
+          {children}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1618,17 +1748,20 @@ function AdminTabButton({
   active,
   icon: Icon,
   label,
+  mobileLabel,
   onClick
 }: {
   active: boolean;
   icon: typeof Settings;
   label: string;
+  mobileLabel: string;
   onClick: () => void;
 }) {
   return (
     <button className={active ? 'admin-tab active' : 'admin-tab'} type="button" onClick={onClick}>
       <Icon size={17} aria-hidden="true" />
-      <span>{label}</span>
+      <span className="admin-tab-label">{label}</span>
+      <span className="admin-tab-mobile-label">{mobileLabel}</span>
     </button>
   );
 }
