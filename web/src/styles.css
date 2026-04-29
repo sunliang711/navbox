@@ -1086,8 +1086,8 @@ button {
 
 .admin-shell {
   min-height: 100vh;
-  background: #f4f7f6;
-  padding: 22px;
+  background: #f6f8fa;
+  padding: 20px clamp(14px, 2vw, 28px) 28px;
 }
 
 .admin-header {
@@ -1095,12 +1095,19 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+}
+
+.admin-header h1 {
+  font-size: clamp(28px, 2.8vw, 38px);
+  letter-spacing: 0;
+  line-height: 1.12;
 }
 
 .admin-header p {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   color: #65756f;
+  font-size: 14px;
 }
 
 .admin-header-actions,
@@ -1134,9 +1141,36 @@ button {
   padding: 0 12px;
 }
 
+.admin-header-actions button:hover,
+.admin-actions button:hover,
+.icon-actions button:hover,
+.batch-bar button:hover,
+.admin-tool-panel button:hover,
+.file-button:hover,
+.row-actions button:hover {
+  border-color: #aebfba;
+  background: #f8faf9;
+}
+
+.admin-header-actions button:disabled,
+.admin-actions button:disabled,
+.icon-actions button:disabled,
+.batch-bar button:disabled,
+.admin-tool-panel button:disabled,
+.row-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .primary-button {
   border-color: #1f5d52;
   background: #1f5d52;
+  color: #ffffff;
+}
+
+.primary-button:hover {
+  border-color: #17483f;
+  background: #17483f;
   color: #ffffff;
 }
 
@@ -1154,7 +1188,7 @@ button {
 .admin-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   overflow-x: auto;
 }
 
@@ -1178,7 +1212,11 @@ button {
 
 .admin-section {
   display: grid;
-  gap: 14px;
+  gap: 12px;
+}
+
+.admin-actions {
+  justify-content: flex-end;
 }
 
 .admin-table-wrap {
@@ -1190,14 +1228,14 @@ button {
 
 .admin-table {
   width: 100%;
-  min-width: 760px;
+  min-width: 1040px;
   border-collapse: collapse;
 }
 
 .admin-table th,
 .admin-table td {
   border-bottom: 1px solid #e5ece9;
-  padding: 12px;
+  padding: 10px 12px;
   text-align: left;
   vertical-align: middle;
 }
@@ -1210,6 +1248,14 @@ button {
 
 .admin-table tbody tr:hover {
   background: #f8faf9;
+}
+
+.admin-table tbody tr.selected-row {
+  background: #eef7f4;
+}
+
+.admin-table tbody tr.selected-row:hover {
+  background: #e7f2ef;
 }
 
 .dragging-row {
@@ -1240,7 +1286,10 @@ button {
 .admin-table th {
   color: #536560;
   font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
   text-transform: uppercase;
+  background: #fbfcfc;
 }
 
 .admin-table td strong {
@@ -1257,6 +1306,87 @@ button {
   font-size: 12px;
 }
 
+.drag-cell {
+  width: 58px;
+}
+
+.select-cell {
+  width: 64px;
+}
+
+.site-cell {
+  width: 36%;
+  min-width: 260px;
+}
+
+.tag-cell {
+  width: 22%;
+}
+
+.open-cell,
+.favorite-cell,
+.status-cell {
+  width: 120px;
+}
+
+.count-cell,
+.sort-cell {
+  width: 96px;
+}
+
+.actions-cell {
+  width: 120px;
+}
+
+.select-cell input,
+.checkbox-list input,
+.checkbox-row input,
+.checkbox-line input {
+  accent-color: #1f5d52;
+}
+
+.site-cell strong,
+.site-cell > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-table td .table-tag,
+.admin-table td .status-pill {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  min-height: 24px;
+  margin-top: 0;
+  border: 1px solid #d9e5e1;
+  border-radius: 999px;
+  background: #f7faf9;
+  color: #40534e;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.admin-table td .table-tag.muted,
+.admin-table td .favorite-pill {
+  color: #72827d;
+}
+
+.admin-table td .status-pill.active,
+.admin-table td .favorite-pill.active {
+  border-color: #b7dbd1;
+  background: #e5f3ef;
+  color: #1f5d52;
+}
+
 .admin-table td .drag-handle {
   display: inline-grid;
   margin-top: 0;
@@ -1264,9 +1394,18 @@ button {
 }
 
 .order-input {
-  width: 80px;
+  width: 72px;
   min-height: 32px;
+  border-color: transparent;
+  background: #f6f8fa;
   padding: 4px 8px;
+  text-align: center;
+}
+
+.order-input:hover,
+.order-input:focus {
+  border-color: #b9cbc5;
+  background: #ffffff;
 }
 
 .color-swatch {
@@ -1276,12 +1415,27 @@ button {
   border-radius: 999px;
 }
 
+.admin-table td .color-swatch {
+  display: inline-flex;
+  margin-top: 0;
+}
+
 .batch-bar {
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
   border: 1px solid #d6e0dc;
   border-radius: 8px;
   background: #ffffff;
-  padding: 10px;
+  padding: 10px 12px;
+}
+
+.batch-summary {
+  min-width: 86px;
+  color: #536560;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .checkbox-list {
@@ -1490,6 +1644,37 @@ button {
   padding: 0;
 }
 
+.row-actions {
+  justify-content: flex-end;
+  gap: 6px;
+  opacity: 0.72;
+  transition: opacity 0.16s ease;
+}
+
+.admin-table tbody tr:hover .row-actions,
+.admin-table tbody tr:focus-within .row-actions {
+  opacity: 1;
+}
+
+.row-actions button {
+  min-height: 34px;
+  border-color: transparent;
+  background: transparent;
+  color: #60746e;
+}
+
+.row-actions button:hover {
+  border-color: #d6e0dc;
+  background: #edf4f1;
+  color: #1f5d52;
+}
+
+.row-actions .row-danger:hover {
+  border-color: #f2c4bd;
+  background: #fff3f1;
+  color: #b42318;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1520,6 +1705,19 @@ button {
 
   .export-picker-actions {
     justify-content: flex-start;
+  }
+
+  .admin-actions {
+    justify-content: flex-start;
+  }
+
+  .batch-bar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .batch-summary {
+    min-width: 0;
   }
 }
 
@@ -1607,6 +1805,14 @@ button {
 :root[data-theme='dark'] .admin-table tbody tr:hover {
   border-color: #475569;
   background: #172033;
+}
+
+:root[data-theme='dark'] .admin-table tbody tr.selected-row {
+  background: #122134;
+}
+
+:root[data-theme='dark'] .admin-table tbody tr.selected-row:hover {
+  background: #172a41;
 }
 
 :root[data-theme='dark'] .text-icon,
@@ -1717,6 +1923,18 @@ button {
   color: #e5e7eb;
 }
 
+:root[data-theme='dark'] .admin-header-actions button:hover,
+:root[data-theme='dark'] .admin-actions button:hover,
+:root[data-theme='dark'] .icon-actions button:hover,
+:root[data-theme='dark'] .batch-bar button:hover,
+:root[data-theme='dark'] .admin-tool-panel button:hover,
+:root[data-theme='dark'] .file-button:hover,
+:root[data-theme='dark'] .row-actions button:hover {
+  border-color: #475569;
+  background: #1e293b;
+  color: #f8fafc;
+}
+
 :root[data-theme='dark'] .admin-header-actions .primary-button,
 :root[data-theme='dark'] .admin-actions .primary-button,
 :root[data-theme='dark'] .admin-tool-panel .primary-button,
@@ -1724,6 +1942,21 @@ button {
   border-color: #2563eb;
   background: #2563eb;
   color: #ffffff;
+}
+
+:root[data-theme='dark'] .admin-header-actions .primary-button:hover,
+:root[data-theme='dark'] .admin-actions .primary-button:hover,
+:root[data-theme='dark'] .admin-tool-panel .primary-button:hover,
+:root[data-theme='dark'] .primary-button:hover {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+:root[data-theme='dark'] .row-actions .row-danger:hover {
+  border-color: #7f1d1d;
+  background: #2f1215;
+  color: #fca5a5;
 }
 
 :root[data-theme='dark'] .export-scope button.active {
@@ -1753,6 +1986,33 @@ button {
 
 :root[data-theme='dark'] .admin-table th {
   color: #94a3b8;
+  background: #0f172a;
+}
+
+:root[data-theme='dark'] .admin-table td .table-tag,
+:root[data-theme='dark'] .admin-table td .status-pill {
+  border-color: #334155;
+  background: #172033;
+  color: #cbd5e1;
+}
+
+:root[data-theme='dark'] .admin-table td .table-tag.muted,
+:root[data-theme='dark'] .admin-table td .favorite-pill,
+:root[data-theme='dark'] .batch-summary {
+  color: #94a3b8;
+}
+
+:root[data-theme='dark'] .admin-table td .status-pill.active,
+:root[data-theme='dark'] .admin-table td .favorite-pill.active {
+  border-color: #1d4ed8;
+  background: #172554;
+  color: #bfdbfe;
+}
+
+:root[data-theme='dark'] .order-input:hover,
+:root[data-theme='dark'] .order-input:focus {
+  border-color: #475569;
+  background: #0f172a;
 }
 
 :root[data-theme='dark'] .panel-backdrop {

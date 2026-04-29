@@ -732,7 +732,7 @@ export function AdminApp() {
               <Save size={17} aria-hidden="true" />
               {t('saveOrder')}
             </button>
-            <button type="button" onClick={handleBatchDelete}>
+            <button type="button" onClick={handleBatchDelete} disabled={selectedSiteIds.length === 0}>
               <Trash2 size={17} aria-hidden="true" />
               {t('batchDelete')}
             </button>
@@ -741,6 +741,7 @@ export function AdminApp() {
           <BatchTagBar
             tags={tags}
             selected={batchTagSet}
+            selectedSiteCount={selectedSiteIds.length}
             onToggle={(id) => toggleString(batchTagIds, id, setBatchTagIds)}
             onAdd={() => handleBatchTags('add')}
             onRemove={() => handleBatchTags('remove')}
@@ -763,12 +764,15 @@ export function AdminApp() {
               <tbody>
                 {sites.map((site) => (
                   <tr
-                    className={draggingSiteId === site.id ? 'dragging-row' : undefined}
+                    className={[
+                      draggingSiteId === site.id ? 'dragging-row' : '',
+                      selectedSiteSet.has(site.id) ? 'selected-row' : ''
+                    ].filter(Boolean).join(' ') || undefined}
                     key={site.id}
                     onDragOver={allowSortDrop}
                     onDrop={(event) => dropSite(event, site.id)}
                   >
-                    <td>
+                    <td className="drag-cell">
                       <span
                         className="drag-handle"
                         draggable
@@ -782,7 +786,7 @@ export function AdminApp() {
                         <GripVertical size={16} aria-hidden="true" />
                       </span>
                     </td>
-                    <td>
+                    <td className="select-cell">
                       <input
                         type="checkbox"
                         checked={selectedSiteSet.has(site.id)}
@@ -790,14 +794,30 @@ export function AdminApp() {
                         aria-label={t('selectSite', { title: site.title })}
                       />
                     </td>
-                    <td>
+                    <td className="site-cell">
                       <strong>{site.title}</strong>
                       <span>{site.default_url}</span>
                     </td>
-                    <td>{site.tags.map((tag) => tag.name).join(', ') || t('uncategorized')}</td>
-                    <td>{site.open_method === 'current_window' ? t('currentTab') : t('newTab')}</td>
-                    <td>{site.is_favorite ? t('yes') : t('no')}</td>
-                    <td>
+                    <td className="tag-cell">
+                      <div className="table-tags">
+                        {site.tags.length > 0 ? (
+                          site.tags.map((tag) => (
+                            <span className="table-tag" key={tag.id}>{tag.name}</span>
+                          ))
+                        ) : (
+                          <span className="table-tag muted">{t('uncategorized')}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="open-cell">
+                      <span className="status-pill">{site.open_method === 'current_window' ? t('currentTab') : t('newTab')}</span>
+                    </td>
+                    <td className="favorite-cell">
+                      <span className={site.is_favorite ? 'status-pill favorite-pill active' : 'status-pill favorite-pill'}>
+                        {site.is_favorite ? t('yes') : t('no')}
+                      </span>
+                    </td>
+                    <td className="sort-cell">
                       <input
                         className="order-input"
                         type="number"
@@ -805,12 +825,12 @@ export function AdminApp() {
                         onChange={(event) => setSiteOrder({ ...siteOrder, [site.id]: Number(event.target.value) })}
                       />
                     </td>
-                    <td>
+                    <td className="actions-cell">
                       <div className="row-actions">
                         <button type="button" onClick={() => openEditSite(site)} title={t('editSite')}>
                           <Pencil size={16} aria-hidden="true" />
                         </button>
-                        <button type="button" onClick={() => removeSite(site.id)} title={t('deleteSite')}>
+                        <button className="row-danger" type="button" onClick={() => removeSite(site.id)} title={t('deleteSite')}>
                           <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </div>
@@ -855,7 +875,7 @@ export function AdminApp() {
                     onDragOver={allowSortDrop}
                     onDrop={(event) => dropTag(event, tag.id)}
                   >
-                    <td>
+                    <td className="drag-cell">
                       <span
                         className="drag-handle"
                         draggable
@@ -869,16 +889,20 @@ export function AdminApp() {
                         <GripVertical size={16} aria-hidden="true" />
                       </span>
                     </td>
-                    <td>
+                    <td className="site-cell">
                       <strong>
                         <span className="color-swatch" style={{ background: tag.color || '#2f7d6d' }} />
                         {tag.name}
                       </strong>
                       <span>{tag.icon || t('noIcon')}</span>
                     </td>
-                    <td>{tag.is_default ? t('defaultStatus') : tag.is_enabled ? t('enabledStatus') : t('disabledStatus')}</td>
-                    <td>{tag.site_count}</td>
-                    <td>
+                    <td className="status-cell">
+                      <span className={tag.is_enabled ? 'status-pill active' : 'status-pill'}>
+                        {tag.is_default ? t('defaultStatus') : tag.is_enabled ? t('enabledStatus') : t('disabledStatus')}
+                      </span>
+                    </td>
+                    <td className="count-cell">{tag.site_count}</td>
+                    <td className="sort-cell">
                       <input
                         className="order-input"
                         type="number"
@@ -886,7 +910,7 @@ export function AdminApp() {
                         onChange={(event) => setTagOrder({ ...tagOrder, [tag.id]: Number(event.target.value) })}
                       />
                     </td>
-                    <td>
+                    <td className="actions-cell">
                       <div className="row-actions">
                         {!tag.is_default && (
                           <button type="button" onClick={() => makeDefaultTag(tag.id)} title={t('setDefault')}>
@@ -896,7 +920,7 @@ export function AdminApp() {
                         <button type="button" onClick={() => openEditTag(tag)} title={t('editTag')}>
                           <Pencil size={16} aria-hidden="true" />
                         </button>
-                        <button type="button" onClick={() => removeTag(tag.id)} title={t('deleteTag')}>
+                        <button className="row-danger" type="button" onClick={() => removeTag(tag.id)} title={t('deleteTag')}>
                           <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </div>
@@ -1110,20 +1134,24 @@ function AdminTabButton({
 function BatchTagBar({
   tags,
   selected,
+  selectedSiteCount,
   onToggle,
   onAdd,
   onRemove
 }: {
   tags: Tag[];
   selected: Set<string>;
+  selectedSiteCount: number;
   onToggle: (id: string) => void;
   onAdd: () => void;
   onRemove: () => void;
 }) {
   const { t } = usePreferences();
+  const actionDisabled = selectedSiteCount === 0 || selected.size === 0;
 
   return (
     <div className="batch-bar">
+      <div className="batch-summary">{t('selectedCount', { count: selectedSiteCount })}</div>
       <div className="checkbox-list compact">
         {tags.map((tag) => (
           <label key={tag.id}>
@@ -1132,8 +1160,8 @@ function BatchTagBar({
           </label>
         ))}
       </div>
-      <button type="button" onClick={onAdd}>{t('batchAddTag')}</button>
-      <button type="button" onClick={onRemove}>{t('batchRemoveTag')}</button>
+      <button type="button" onClick={onAdd} disabled={actionDisabled}>{t('batchAddTag')}</button>
+      <button type="button" onClick={onRemove} disabled={actionDisabled}>{t('batchRemoveTag')}</button>
     </div>
   );
 }
