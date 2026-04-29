@@ -19,6 +19,7 @@ type AuthRepo interface {
 	ResetAdminPassword(ctx context.Context, setting *model.AdminSetting) error
 	CreateSession(ctx context.Context, session *model.AdminSession) error
 	GetSessionByTokenHash(ctx context.Context, tokenHash string, now time.Time) (*model.AdminSession, error)
+	UpdateSessionExpiresAt(ctx context.Context, tokenHash string, now time.Time, expiresAt time.Time) (bool, error)
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
 	DeleteSessionsExcept(ctx context.Context, tokenHash string) error
 	DeleteAllSessions(ctx context.Context) error
@@ -109,6 +110,17 @@ func (r *authRepo) GetSessionByTokenHash(ctx context.Context, tokenHash string, 
 		return nil, fmt.Errorf("get admin session: %w", err)
 	}
 	return &session, nil
+}
+
+func (r *authRepo) UpdateSessionExpiresAt(ctx context.Context, tokenHash string, now time.Time, expiresAt time.Time) (bool, error) {
+	result := r.db.WithContext(ctx).
+		Model(&model.AdminSession{}).
+		Where("token_hash = ? AND expires_at > ?", tokenHash, now).
+		Update("expires_at", expiresAt)
+	if result.Error != nil {
+		return false, fmt.Errorf("update admin session expires at: %w", result.Error)
+	}
+	return result.RowsAffected > 0, nil
 }
 
 func (r *authRepo) DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error {

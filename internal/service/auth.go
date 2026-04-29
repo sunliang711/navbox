@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	adminSettingID        = 1
-	sessionTokenBytes     = 32
-	minAdminPasswordBytes = 8
-	passwordAlphabet      = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*"
+	adminSettingID                 = 1
+	sessionTokenBytes              = 32
+	sessionRenewalThresholdDivisor = 2
+	minAdminPasswordBytes          = 8
+	passwordAlphabet               = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*"
 )
 
 var (
@@ -37,6 +38,7 @@ type AuthService interface {
 	EnsureInitialized(ctx context.Context) error
 	Login(ctx context.Context, password string) (LoginResult, error)
 	ValidateSession(ctx context.Context, token string) error
+	ValidateSessionWithRenewal(ctx context.Context, token string) (SessionValidationResult, error)
 	Logout(ctx context.Context, token string) error
 	ChangePassword(ctx context.Context, token string, currentPassword string, newPassword string) error
 	ResetPassword(ctx context.Context, newPassword string) error
@@ -45,6 +47,11 @@ type AuthService interface {
 type LoginResult struct {
 	Token     string
 	ExpiresAt time.Time
+}
+
+type SessionValidationResult struct {
+	ExpiresAt time.Time
+	Renewed   bool
 }
 
 type AuthServiceParams struct {
@@ -124,9 +131,9 @@ func (s *authService) Login(ctx context.Context, password string) (LoginResult, 
 	if err != nil {
 		return LoginResult{}, err
 	}
-	sessionTTL, err := time.ParseDuration(s.cfg.Auth.SessionTTL)
+	sessionTTL, err := s.sessionTTL()
 	if err != nil {
-		return LoginResult{}, fmt.Errorf("parse session ttl: %w", err)
+		return LoginResult{}, err
 	}
 	now := time.Now().UTC()
 	expiresAt := now.Add(sessionTTL)
@@ -145,17 +152,50 @@ func (s *authService) Login(ctx context.Context, password string) (LoginResult, 
 }
 
 func (s *authService) ValidateSession(ctx context.Context, token string) error {
+	_, err := s.validateSession(ctx, token, false)
+	return err
+}
+
+func (s *authService) ValidateSessionWithRenewal(ctx context.Context, token string) (SessionValidationResult, error) {
+	return s.validateSession(ctx, token, true)
+}
+
+func (s *authService) validateSession(ctx context.Context, token string, renew bool) (SessionValidationResult, error) {
 	if token == "" {
-		return ErrUnauthenticated
+		return SessionValidationResult{}, ErrUnauthenticated
 	}
-	session, err := s.repo.GetSessionByTokenHash(ctx, hashToken(token), time.Now().UTC())
+	now := time.Now().UTC()
+	tokenHash := hashToken(token)
+	session, err := s.repo.GetSessionByTokenHash(ctx, tokenHash, now)
 	if err != nil {
-		return err
+		return SessionValidationResult{}, err
 	}
 	if session == nil {
-		return ErrUnauthenticated
+		return SessionValidationResult{}, ErrUnauthenticated
 	}
-	return nil
+	result := SessionValidationResult{ExpiresAt: session.ExpiresAt}
+	if !renew {
+		return result, nil
+	}
+
+	sessionTTL, err := s.sessionTTL()
+	if err != nil {
+		return SessionValidationResult{}, err
+	}
+	if session.ExpiresAt.Sub(now) >= sessionTTL/sessionRenewalThresholdDivisor {
+		return result, nil
+	}
+
+	expiresAt := now.Add(sessionTTL)
+	updated, err := s.repo.UpdateSessionExpiresAt(ctx, tokenHash, now, expiresAt)
+	if err != nil {
+		return SessionValidationResult{}, err
+	}
+	if !updated {
+		return SessionValidationResult{}, ErrUnauthenticated
+	}
+
+	return SessionValidationResult{ExpiresAt: expiresAt, Renewed: true}, nil
 }
 
 func (s *authService) Logout(ctx context.Context, token string) error {
@@ -215,6 +255,14 @@ func (s *authService) ResetPassword(ctx context.Context, newPassword string) err
 		return err
 	}
 	return nil
+}
+
+func (s *authService) sessionTTL() (time.Duration, error) {
+	ttl, err := time.ParseDuration(s.cfg.Auth.SessionTTL)
+	if err != nil {
+		return 0, fmt.Errorf("parse session ttl: %w", err)
+	}
+	return ttl, nil
 }
 
 func hashPassword(password string) (string, error) {

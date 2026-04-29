@@ -14,8 +14,9 @@ import (
 )
 
 type fakeAuthRepo struct {
-	setting  *model.AdminSetting
-	sessions map[string]*model.AdminSession
+	setting         *model.AdminSetting
+	sessions        map[string]*model.AdminSession
+	sessionRenewals int
 }
 
 type fakeLifecycle struct{}
@@ -57,6 +58,16 @@ func (r *fakeAuthRepo) GetSessionByTokenHash(ctx context.Context, tokenHash stri
 		return nil, nil
 	}
 	return session, nil
+}
+
+func (r *fakeAuthRepo) UpdateSessionExpiresAt(ctx context.Context, tokenHash string, now time.Time, expiresAt time.Time) (bool, error) {
+	session := r.sessions[tokenHash]
+	if session == nil || !session.ExpiresAt.After(now) {
+		return false, nil
+	}
+	session.ExpiresAt = expiresAt
+	r.sessionRenewals++
+	return true, nil
 }
 
 func (r *fakeAuthRepo) DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error {
@@ -137,6 +148,61 @@ func TestAuthServiceLoginAndValidateSession(t *testing.T) {
 	require.NotEmpty(t, result.Token)
 	require.NoError(t, svc.ValidateSession(context.Background(), result.Token))
 	require.ErrorIs(t, svc.ValidateSession(context.Background(), "bad-token"), ErrUnauthenticated)
+}
+
+func TestAuthServiceValidateSessionWithRenewal(t *testing.T) {
+	tests := []struct {
+		name        string
+		expiresIn   time.Duration
+		wantRenewed bool
+	}{
+		{name: "renews when remaining ttl below half", expiresIn: 30 * time.Minute, wantRenewed: true},
+		{name: "keeps session when remaining ttl enough", expiresIn: 90 * time.Minute, wantRenewed: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			passwordHash, err := hashPassword("correct-password")
+			require.NoError(t, err)
+
+			repo := newFakeAuthRepo()
+			repo.setting = &model.AdminSetting{
+				ID:           adminSettingID,
+				PasswordHash: passwordHash,
+				Initialized:  true,
+			}
+			cfg := testAuthConfig()
+			cfg.Auth.SessionTTL = "2h"
+			svc := NewAuthService(AuthServiceParams{
+				Lifecycle: fakeLifecycle{},
+				Config:    cfg,
+				Logger:    zerolog.Nop(),
+				Repo:      repo,
+			})
+
+			loginResult, err := svc.Login(context.Background(), "correct-password")
+			require.NoError(t, err)
+
+			session := repo.sessions[hashToken(loginResult.Token)]
+			require.NotNil(t, session)
+			session.ExpiresAt = time.Now().UTC().Add(tt.expiresIn)
+			originalExpiresAt := session.ExpiresAt
+
+			result, err := svc.ValidateSessionWithRenewal(context.Background(), loginResult.Token)
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantRenewed, result.Renewed)
+			if tt.wantRenewed {
+				require.Equal(t, 1, repo.sessionRenewals)
+				require.True(t, result.ExpiresAt.After(originalExpiresAt))
+				require.Equal(t, result.ExpiresAt, session.ExpiresAt)
+				return
+			}
+			require.Equal(t, 0, repo.sessionRenewals)
+			require.Equal(t, originalExpiresAt, result.ExpiresAt)
+			require.Equal(t, originalExpiresAt, session.ExpiresAt)
+		})
+	}
 }
 
 func TestAuthServiceChangePassword(t *testing.T) {
