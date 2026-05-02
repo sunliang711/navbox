@@ -413,7 +413,7 @@ button {
 
 .site-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 20px;
   width: min(1480px, 100%);
   margin: 0 auto;
@@ -529,7 +529,8 @@ button {
 }
 
 .site-main {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   width: 100%;
   min-width: 0;
   align-items: center;
@@ -577,6 +578,8 @@ button {
 }
 
 .site-title-row h2 {
+  display: -webkit-box;
+  flex: 1 1 auto;
   min-width: 0;
   margin: 0;
   overflow: hidden;
@@ -585,7 +588,9 @@ button {
   font-weight: 800;
   line-height: 1.25;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .site-network-badge {
@@ -946,6 +951,7 @@ button {
   }
 
   .site-main {
+    grid-template-columns: auto minmax(0, 1fr);
     gap: 12px;
   }
 
@@ -973,6 +979,8 @@ button {
 
   .site-title-row h2 {
     font-size: 16px;
+    white-space: nowrap;
+    -webkit-line-clamp: 1;
   }
 
   .site-copy p {
