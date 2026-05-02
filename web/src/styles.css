@@ -47,6 +47,17 @@ button {
   margin: 0 auto;
 }
 
+.app-version {
+  display: block;
+  width: min(1480px, 100%);
+  margin: 24px auto 0;
+  color: #8a9a94;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: right;
+}
+
 .toolbar {
   z-index: 3;
   display: grid;
@@ -767,6 +778,11 @@ button {
     padding: 24px 14px calc(22px + env(safe-area-inset-bottom));
   }
 
+  .app-version {
+    margin-top: 18px;
+    text-align: center;
+  }
+
   .toolbar {
     gap: 12px;
     padding: 8px 0 22px;
@@ -1008,6 +1024,14 @@ button {
   place-items: center;
   padding: 24px;
   background: #edf4f1;
+}
+
+.admin-login .app-version {
+  position: fixed;
+  right: 24px;
+  bottom: 20px;
+  width: auto;
+  margin: 0;
 }
 
 .login-panel {
@@ -2518,6 +2542,7 @@ button {
 }
 
 :root[data-theme='dark'] .site-copy p,
+:root[data-theme='dark'] .app-version,
 :root[data-theme='dark'] .admin-header p,
 :root[data-theme='dark'] .admin-table td span,
 :root[data-theme='dark'] .mobile-card-title span,

@@ -14,6 +14,7 @@ import { listSites, listTags } from './api';
 import { AdminApp } from './AdminApp';
 import { PreferenceControls, PreferencesProvider, usePreferences } from './preferences';
 import { loadRecentSites, saveRecentSite } from './recent';
+import { VersionBadge } from './version';
 import './styles.css';
 import type { RecentSite, Site, Tag, TagMatchMode } from './types';
 
@@ -400,6 +401,7 @@ function VisitorApp() {
           )}
         </section>
       </section>
+      <VersionBadge />
       {notice && <div className="toast">{notice}</div>}
     </main>
   );

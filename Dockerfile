@@ -3,6 +3,8 @@ WORKDIR /src/web
 COPY web/package*.json ./
 RUN npm ci
 COPY web ./
+ARG NAVBOX_VERSION=dev
+ENV VITE_NAVBOX_VERSION=${NAVBOX_VERSION}
 RUN npm run build
 
 FROM golang:1.25-alpine AS go-build

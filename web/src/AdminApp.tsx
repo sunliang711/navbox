@@ -49,6 +49,7 @@ import {
   uploadIcon
 } from './api';
 import { PreferenceControls, usePreferences } from './preferences';
+import { VersionBadge } from './version';
 import type { ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
 
 type AdminTab = 'sites' | 'tags' | 'io' | 'password';
@@ -774,6 +775,7 @@ export function AdminApp() {
           </button>
           <p className="form-note">{t('restoreDoneNote')}</p>
         </form>
+        <VersionBadge />
       </main>
     );
   }
@@ -805,6 +807,7 @@ export function AdminApp() {
             {t('login')}
           </button>
         </form>
+        <VersionBadge />
       </main>
     );
   }
@@ -1368,6 +1371,7 @@ export function AdminApp() {
           <TagForm draft={tagDraft} onChange={setTagDraft} onSubmit={submitTag} />
         </SidePanel>
       )}
+      <VersionBadge />
     </main>
   );
 }
