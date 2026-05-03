@@ -1853,7 +1853,7 @@ function SiteForm({
   }
 
   return (
-    <form className="admin-form" onSubmit={onSubmit}>
+    <form className="admin-form site-form" onSubmit={onSubmit}>
       <label>
         <span>{t('title')}</span>
         <input value={draft.title} onChange={(event) => patch({ title: event.target.value })} required />
@@ -1867,23 +1867,21 @@ function SiteForm({
         <input value={draft.lan_url} onChange={(event) => patch({ lan_url: event.target.value })} />
       </label>
       <label>
+        <span>{t('openMethod')}</span>
+        <select value={draft.open_method} onChange={(event) => patch({ open_method: event.target.value })}>
+          <option value="new_window">{t('newWindow')}</option>
+          <option value="current_window">{t('currentWindow')}</option>
+        </select>
+      </label>
+      <label className="site-description-field">
         <span>{t('description')}</span>
         <textarea value={draft.description} onChange={(event) => patch({ description: event.target.value })} rows={3} />
       </label>
-      <div className="form-grid">
-        <label>
-          <span>{t('openMethod')}</span>
-          <select value={draft.open_method} onChange={(event) => patch({ open_method: event.target.value })}>
-            <option value="new_window">{t('newWindow')}</option>
-            <option value="current_window">{t('currentWindow')}</option>
-          </select>
-        </label>
+      <div className="form-grid form-grid-three">
         <label>
           <span>{t('sort')}</span>
           <input type="number" value={draft.sort_order} onChange={(event) => patch({ sort_order: Number(event.target.value) })} />
         </label>
-      </div>
-      <div className="form-grid">
         <label>
           <span>{t('iconType')}</span>
           <select value={draft.icon_type} onChange={(event) => patch({ icon_type: event.target.value })}>
@@ -1897,24 +1895,26 @@ function SiteForm({
           <input value={draft.background_color} onChange={(event) => patch({ background_color: event.target.value })} />
         </label>
       </div>
-      <label>
-        <span>{t('iconValue')}</span>
-        <input value={draft.icon_value} onChange={(event) => patch({ icon_value: event.target.value })} />
-      </label>
-      <div className="icon-actions">
-        <button type="button" onClick={onFetchIcon} disabled={iconFetching || !draft.default_url.trim()}>
-          <RefreshCw className={iconFetching ? 'spin' : ''} size={17} aria-hidden="true" />
-          {iconFetching ? t('fetching') : t('fetchFromWebsite')}
-        </button>
-        <label className="file-button inline-file">
-          <Upload size={17} aria-hidden="true" />
-          {t('uploadIcon')}
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/svg+xml,.svg"
-            onChange={onIconUpload}
-          />
+      <div className="form-grid icon-field-row">
+        <label>
+          <span>{t('iconValue')}</span>
+          <input value={draft.icon_value} onChange={(event) => patch({ icon_value: event.target.value })} />
         </label>
+        <div className="icon-actions">
+          <button type="button" onClick={onFetchIcon} disabled={iconFetching || !draft.default_url.trim()}>
+            <RefreshCw className={iconFetching ? 'spin' : ''} size={17} aria-hidden="true" />
+            {iconFetching ? t('fetching') : t('fetchFromWebsite')}
+          </button>
+          <label className="file-button inline-file">
+            <Upload size={17} aria-hidden="true" />
+            {t('uploadIcon')}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/svg+xml,.svg"
+              onChange={onIconUpload}
+            />
+          </label>
+        </div>
       </div>
       <div className="checkbox-row">
         <label>
