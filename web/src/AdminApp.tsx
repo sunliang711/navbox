@@ -118,7 +118,7 @@ export function AdminApp() {
   const [mobileSiteActionsOpen, setMobileSiteActionsOpen] = useState(false);
   const [mobileTagActionsOpen, setMobileTagActionsOpen] = useState(false);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
-  const [passwordForm, setPasswordForm] = useState({ current: '', next: '' });
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const [restoreForm, setRestoreForm] = useState({ token: '', next: '', confirm: '' });
   const [restoreNotice, setRestoreNotice] = useState('');
 
@@ -219,6 +219,18 @@ export function AdminApp() {
         .some((value) => value.toLocaleLowerCase().includes(normalizedAdminSearch))
     );
   }, [tags, normalizedAdminSearch, t]);
+  const currentAdminTitle = useMemo(() => {
+    if (tab === 'tags') {
+      return t('tagsTab');
+    }
+    if (tab === 'io') {
+      return t('importExportTab');
+    }
+    if (tab === 'password') {
+      return t('passwordTab');
+    }
+    return t('sitesTab');
+  }, [t, tab]);
 
   function handleAdminError(error: unknown): boolean {
     if (!isUnauthorizedError(error)) {
@@ -629,9 +641,13 @@ export function AdminApp() {
 
   async function submitPassword(event: FormEvent) {
     event.preventDefault();
+    if (passwordForm.next !== passwordForm.confirm) {
+      setNotice(t('passwordMismatch'));
+      return;
+    }
     try {
       await changeAdminPassword(passwordForm.current, passwordForm.next);
-      setPasswordForm({ current: '', next: '' });
+      setPasswordForm({ current: '', next: '', confirm: '' });
       setNotice(t('passwordChanged'));
     } catch (error) {
       if (!handleAdminError(error)) {
@@ -814,10 +830,28 @@ export function AdminApp() {
 
   return (
     <main className={tab === 'sites' && selectedSiteIds.length > 0 ? 'admin-shell mobile-dock-active' : 'admin-shell'}>
+      <aside className="admin-sidebar" aria-label={t('adminModules')}>
+        <div className="admin-sidebar-brand">
+          <strong>NAVBOX</strong>
+          <span>{t('adminLogin').replace('Navbox ', '')}</span>
+        </div>
+        <nav className="admin-tabs" aria-label={t('adminModules')}>
+          <AdminTabButton active={tab === 'sites'} onClick={() => setTab('sites')} icon={Settings} label={t('sitesTab')} mobileLabel={t('sitesTab')} />
+          <AdminTabButton active={tab === 'tags'} onClick={() => setTab('tags')} icon={Tags} label={t('tagsTab')} mobileLabel={t('tagsTab')} />
+          <AdminTabButton active={tab === 'io'} onClick={() => setTab('io')} icon={FileUp} label={t('importExportTab')} mobileLabel={t('importShortTab')} />
+          <AdminTabButton active={tab === 'password'} onClick={() => setTab('password')} icon={KeyRound} label={t('passwordTab')} mobileLabel={t('passwordTab')} />
+        </nav>
+        <div className="admin-sidebar-status">
+          <span>{t('currentStatus')}</span>
+          <strong>{t('savedStatus')}</strong>
+          <VersionBadge />
+        </div>
+      </aside>
       <header className="admin-header">
-        <div>
-          <h1>{t('navboxAdmin')}</h1>
-          <p>{t('adminStats', { sites: sites.length, tags: tags.length })}</p>
+        <div className="admin-title-block">
+          <span className="admin-eyebrow">{t('adminEyebrow')}</span>
+          <h1>{currentAdminTitle}</h1>
+          <p>{t('adminSubtitle')}</p>
         </div>
         <button className="mobile-admin-menu-trigger" type="button" onClick={() => setMobileAdminMenuOpen(true)} title={t('adminQuickMenu')}>
           <MoreHorizontal size={19} aria-hidden="true" />
@@ -842,12 +876,28 @@ export function AdminApp() {
         onLogout={handleLogout}
       />
 
-      <nav className="admin-tabs" aria-label={t('adminModules')}>
-        <AdminTabButton active={tab === 'sites'} onClick={() => setTab('sites')} icon={Settings} label={t('sitesTab')} mobileLabel={t('sitesTab')} />
-        <AdminTabButton active={tab === 'tags'} onClick={() => setTab('tags')} icon={Tags} label={t('tagsTab')} mobileLabel={t('tagsTab')} />
-        <AdminTabButton active={tab === 'io'} onClick={() => setTab('io')} icon={FileUp} label={t('importExportTab')} mobileLabel={t('importShortTab')} />
-        <AdminTabButton active={tab === 'password'} onClick={() => setTab('password')} icon={KeyRound} label={t('passwordTab')} mobileLabel={t('passwordTab')} />
-      </nav>
+      <section className="admin-stat-grid" aria-label={t('adminStats', { sites: sites.length, tags: tags.length })}>
+        <div className="admin-stat-card">
+          <span>{t('totalSites')}</span>
+          <strong>{sites.length}</strong>
+          <em>{t('healthyStatus')}</em>
+        </div>
+        <div className="admin-stat-card">
+          <span>{t('totalTags')}</span>
+          <strong>{tags.length}</strong>
+          <em>{t('healthyStatus')}</em>
+        </div>
+        <div className="admin-stat-card">
+          <span>{t('pendingSave')}</span>
+          <strong>0</strong>
+          <em>{t('healthyStatus')}</em>
+        </div>
+        <div className="admin-stat-card">
+          <span>{t('currentModule')}</span>
+          <strong>{currentAdminTitle}</strong>
+          <em>{t('healthyStatus')}</em>
+        </div>
+      </section>
 
       {notice && <div className="toast">{notice}</div>}
       {loading && <AdminState text={t('refreshing')} />}
@@ -1344,11 +1394,36 @@ export function AdminApp() {
                 required
               />
             </label>
+            <label>
+              <span>{t('confirmNewPassword')}</span>
+              <input
+                type="password"
+                value={passwordForm.confirm}
+                onChange={(event) => setPasswordForm({ ...passwordForm, confirm: event.target.value })}
+                minLength={8}
+                required
+              />
+            </label>
             <button className="primary-button" type="submit">
               <Save size={17} aria-hidden="true" />
               {t('changePassword')}
             </button>
           </form>
+          <aside className="security-tips">
+            <h2>{t('securityTips')}</h2>
+            <div>
+              <span className="danger-dot" />
+              <strong>{t('passwordTipSeparate')}</strong>
+            </div>
+            <div>
+              <span className="accent-dot" />
+              <strong>{t('passwordTipRelogin')}</strong>
+            </div>
+            <div>
+              <span className="success-dot" />
+              <strong>{t('passwordTipStrength')}</strong>
+            </div>
+          </aside>
         </section>
       )}
 
@@ -1371,7 +1446,6 @@ export function AdminApp() {
           <TagForm draft={tagDraft} onChange={setTagDraft} onSubmit={submitTag} />
         </SidePanel>
       )}
-      <VersionBadge />
     </main>
   );
 }
@@ -1787,6 +1861,9 @@ function BatchTagBar({
 }) {
   const { t } = usePreferences();
   const actionDisabled = selectedSiteCount === 0 || selected.size === 0;
+  if (selectedSiteCount === 0) {
+    return null;
+  }
 
   return (
     <div className="batch-bar desktop-only">

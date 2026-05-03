@@ -196,7 +196,20 @@ const zh = {
   importDone: '导入已完成',
   importFailed: '导入失败，请查看服务日志',
   passwordChanged: '密码已修改',
-  sessionExpired: '登录状态已过期，请重新登录'
+  sessionExpired: '登录状态已过期，请重新登录',
+  adminEyebrow: 'NAVBOX ADMIN',
+  adminSubtitle: '炭灰面板、低亮边框、青蓝操作色，和截图风格保持一致。',
+  totalSites: '网站总数',
+  totalTags: 'Tag',
+  pendingSave: '待保存',
+  currentModule: '当前模块',
+  healthyStatus: '状态正常',
+  currentStatus: '当前状态',
+  savedStatus: '配置已保存',
+  securityTips: '安全提示',
+  passwordTipSeparate: '不要复用公网服务密码',
+  passwordTipRelogin: '修改后建议重新登录',
+  passwordTipStrength: '可增加强度检测'
 } as const;
 
 export type TranslationKey = keyof typeof zh;
@@ -390,7 +403,20 @@ const en: Record<TranslationKey, string> = {
   importDone: 'Import completed',
   importFailed: 'Import failed. Check service logs',
   passwordChanged: 'Password changed',
-  sessionExpired: 'Your session has expired. Please log in again'
+  sessionExpired: 'Your session has expired. Please log in again',
+  adminEyebrow: 'NAVBOX ADMIN',
+  adminSubtitle: 'Charcoal panels, low-contrast borders, and cyan action color match the reference.',
+  totalSites: 'Sites',
+  totalTags: 'Tags',
+  pendingSave: 'Pending',
+  currentModule: 'Module',
+  healthyStatus: 'Healthy',
+  currentStatus: 'Status',
+  savedStatus: 'Saved',
+  securityTips: 'Security Tips',
+  passwordTipSeparate: 'Do not reuse public service passwords',
+  passwordTipRelogin: 'Log in again after changing it',
+  passwordTipStrength: 'Add strength checks when needed'
 };
 
 type PreferencesContextValue = {
@@ -464,6 +490,7 @@ export function PreferenceControls() {
           aria-label={nextThemeLabel}
         >
           {theme === 'light' ? <Moon size={15} aria-hidden="true" /> : <Sun size={15} aria-hidden="true" />}
+          <span>{nextThemeLabel}</span>
         </button>
       </div>
       <div className="preference-group" role="group" aria-label={t('language')}>
@@ -490,9 +517,9 @@ function interpolate(text: string, values: Record<string, string | number> = {})
 function loadTheme(): ThemeMode {
   try {
     const value = window.localStorage.getItem(themeKey);
-    return value === 'dark' ? 'dark' : 'light';
+    return value === 'light' ? 'light' : 'dark';
   } catch {
-    return 'light';
+    return 'dark';
   }
 }
 
