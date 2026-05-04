@@ -6,7 +6,6 @@ import {
   Loader2,
   MoreHorizontal,
   Search,
-  SlidersHorizontal,
   X
 } from 'lucide-react';
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -51,6 +50,8 @@ function VisitorApp() {
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const toolbarMenuRef = useRef<HTMLDivElement | null>(null);
+  const toolbarMenuButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,8 +148,24 @@ function VisitorApp() {
       }
     }
 
+    function closeOnOutside(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        setSettingsOpen(false);
+        return;
+      }
+      if (toolbarMenuRef.current?.contains(target) || toolbarMenuButtonRef.current?.contains(target)) {
+        return;
+      }
+      setSettingsOpen(false);
+    }
+
+    window.addEventListener('pointerdown', closeOnOutside, true);
     window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutside, true);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
   }, [settingsOpen]);
 
   const selectedTagSet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
@@ -250,45 +267,41 @@ function VisitorApp() {
             </div>
             <div
               className={settingsOpen ? 'toolbar-actions open' : 'toolbar-actions'}
-              id="visitor-toolbar-actions"
+              ref={toolbarMenuRef}
             >
-              <div className="mobile-settings-head">
-                <span>{t('displaySettings')}</span>
-                <button
-                  className="icon-button"
-                  type="button"
-                  onClick={() => setSettingsOpen(false)}
-                  title={t('close')}
-                  aria-label={t('close')}
-                >
-                  <X size={16} aria-hidden="true" />
-                </button>
-              </div>
               <PreferenceControls />
-              <label className={previewEnabled ? 'toolbar-toggle preview-toggle active' : 'toolbar-toggle preview-toggle'}>
-                <input type="checkbox" checked={previewEnabled} onChange={togglePreview} />
-                <span className="toggle-track" aria-hidden="true">
-                  <span className="toggle-thumb" />
-                </span>
-                <span>{t('preview')}</span>
-              </label>
-              <label className={preferLan ? 'toolbar-toggle lan-toggle active' : 'toolbar-toggle lan-toggle'}>
-                <input type="checkbox" checked={preferLan} onChange={togglePreferLan} />
-                <span className="toggle-track" aria-hidden="true">
-                  <span className="toggle-thumb" />
-                </span>
-                <span>{t('preferLan')}</span>
-              </label>
-              <a className="admin-link" href="/admin">{t('admin')}</a>
-            </div>
-            {settingsOpen && (
               <button
-                className="mobile-settings-backdrop"
+                className="toolbar-menu-button"
                 type="button"
-                onClick={() => setSettingsOpen(false)}
-                aria-label={t('close')}
-              />
-            )}
+                ref={toolbarMenuButtonRef}
+                onClick={() => setSettingsOpen((current) => !current)}
+                title={t('displaySettings')}
+                aria-label={t('displaySettings')}
+                aria-expanded={settingsOpen}
+                aria-controls="visitor-toolbar-menu"
+              >
+                <MoreHorizontal size={18} aria-hidden="true" />
+              </button>
+              {settingsOpen && (
+                <div className="toolbar-menu" id="visitor-toolbar-menu">
+                  <label className={previewEnabled ? 'toolbar-menu-item toolbar-toggle preview-toggle active' : 'toolbar-menu-item toolbar-toggle preview-toggle'}>
+                    <span>{t('preview')}</span>
+                    <input type="checkbox" checked={previewEnabled} onChange={togglePreview} />
+                    <span className="toggle-track" aria-hidden="true">
+                      <span className="toggle-thumb" />
+                    </span>
+                  </label>
+                  <label className={preferLan ? 'toolbar-menu-item toolbar-toggle lan-toggle active' : 'toolbar-menu-item toolbar-toggle lan-toggle'}>
+                    <span>{t('preferLan')}</span>
+                    <input type="checkbox" checked={preferLan} onChange={togglePreferLan} />
+                    <span className="toggle-track" aria-hidden="true">
+                      <span className="toggle-thumb" />
+                    </span>
+                  </label>
+                  <a className="toolbar-menu-item admin-link" href="/admin">{t('admin')}</a>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="filter-bar">
@@ -329,17 +342,6 @@ function VisitorApp() {
                 {t('recentVisits')}
               </button>
             </nav>
-            <button
-              className="mobile-settings-button"
-              type="button"
-              onClick={() => setSettingsOpen((current) => !current)}
-              title={t('displaySettings')}
-              aria-label={t('displaySettings')}
-              aria-expanded={settingsOpen}
-              aria-controls="visitor-toolbar-actions"
-            >
-              <SlidersHorizontal size={18} aria-hidden="true" />
-            </button>
             {view === 'all' && selectedTagIds.length > 1 && (
               <div className="tag-match-toggle" role="group" aria-label={t('tagMatchMode')}>
                 <button
@@ -537,18 +539,19 @@ function SiteCard({
           <div className="site-copy">
             <div className="site-title-row">
               <h2>{site.title}</h2>
-              {hasLanURL && (
-                <span
-                  className={usingLanURL ? 'site-network-badge active' : 'site-network-badge'}
-                  title={usingLanURL ? t('usingLanURL') : t('hasLanURL')}
-                >
-                  LAN
-                </span>
-              )}
+              {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label={t('favorite')} />}
             </div>
             {!site.only_name && site.description && <p>{site.description}</p>}
           </div>
-          <div className="site-card-tools">
+          <div className={hasLanURL ? 'site-card-side' : 'site-card-side no-lan'}>
+            {hasLanURL && (
+              <span
+                className={usingLanURL ? 'site-network-badge active' : 'site-network-badge'}
+                title={usingLanURL ? t('usingLanURL') : t('hasLanURL')}
+              >
+                LAN
+              </span>
+            )}
             {opensInNewTab ? (
               <span className="open-method-icon" title={t('openNewTab')} aria-label={t('openNewTab')} role="img">
                 <ExternalLink size={15} aria-hidden="true" />
@@ -558,7 +561,6 @@ function SiteCard({
                 <ArrowRight size={15} aria-hidden="true" />
               </span>
             )}
-            {site.is_favorite && <Heart className="favorite-icon" size={16} aria-label={t('favorite')} />}
           </div>
         </div>
       </button>

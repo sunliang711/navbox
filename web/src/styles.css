@@ -1006,7 +1006,7 @@ button {
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   .site-grid {
     grid-template-columns: 1fr;
   }
@@ -3722,6 +3722,8 @@ body,
   grid-template-columns: 1fr;
   justify-items: center;
   gap: 24px;
+  position: relative;
+  min-height: 136px;
 }
 
 .search-box {
@@ -3752,10 +3754,97 @@ body,
 }
 
 .toolbar-actions {
-  grid-column: 1;
-  justify-self: end;
-  width: min(920px, 100%);
+  position: absolute;
+  top: 12px;
+  right: 0;
+  z-index: 20;
+  display: inline-flex;
+  grid-column: auto;
+  justify-self: auto;
+  align-items: flex-start;
+  width: auto;
   gap: 12px;
+}
+
+.toolbar-menu-button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--surface-bg);
+  color: var(--text-muted);
+  padding: 0;
+}
+
+.toolbar-menu-button:hover,
+.toolbar-menu-button:focus-visible,
+.toolbar-actions.open .toolbar-menu-button {
+  border-color: var(--line-strong);
+  outline: 0;
+  background: var(--surface-raised);
+  color: var(--text-main);
+}
+
+.toolbar-menu {
+  position: absolute;
+  top: 54px;
+  right: 0;
+  z-index: 24;
+  display: grid;
+  width: 176px;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: var(--surface-bg);
+  padding: 10px 8px;
+  box-shadow: var(--shadow-soft);
+}
+
+.toolbar-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0 10px;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.toolbar-menu-item:hover,
+.toolbar-menu-item:focus-visible {
+  outline: 0;
+  background: var(--surface-raised);
+  color: var(--text-main);
+}
+
+.toolbar-menu .toolbar-toggle {
+  cursor: pointer;
+}
+
+.toolbar-menu .preview-toggle,
+.toolbar-menu .lan-toggle {
+  display: flex;
+}
+
+.toolbar-menu .toggle-track {
+  width: 32px;
+  height: 18px;
+}
+
+.toolbar-menu .toggle-thumb {
+  width: 14px;
+  height: 14px;
+}
+
+.toolbar-menu .toolbar-toggle.active .toggle-thumb {
+  transform: translateX(14px);
 }
 
 .preference-group,
@@ -3829,6 +3918,7 @@ body,
 }
 
 .visitor-section-head {
+  width: min(1336px, 100%);
   margin-bottom: 26px;
 }
 
@@ -3840,16 +3930,19 @@ body,
 }
 
 .site-grid {
-  grid-template-columns: repeat(auto-fill, minmax(416px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(416px, 416px));
+  justify-content: start;
   gap: 26px 28px;
+  width: min(1336px, 100%);
 }
 
 .site-card {
+  position: relative;
   min-height: 116px;
   border-color: var(--line-soft);
   border-radius: 16px;
   background: var(--surface-bg);
-  padding: 26px 66px 26px 26px;
+  padding: 26px 86px 26px 26px;
   box-shadow: var(--shadow-card);
 }
 
@@ -3861,7 +3954,7 @@ body,
 }
 
 .site-main {
-  grid-template-columns: 62px minmax(0, 1fr) auto;
+  grid-template-columns: 62px minmax(0, 1fr);
   gap: 22px;
 }
 
@@ -3882,7 +3975,9 @@ body,
 }
 
 .site-title-row {
-  gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .site-title-row h2 {
@@ -3905,11 +4000,13 @@ body,
 }
 
 .site-network-badge {
-  min-height: 30px;
+  justify-content: center;
+  width: 58px;
+  min-height: 24px;
   border-color: var(--line-strong);
   background: var(--surface-soft);
   color: var(--text-muted);
-  padding: 0 11px;
+  padding: 0;
   font-size: 13px;
 }
 
@@ -3919,17 +4016,26 @@ body,
   color: var(--text-muted);
 }
 
-.site-card-tools {
-  align-self: center;
-  margin-left: 0;
-  padding-top: 0;
+.site-card-side {
+  position: absolute;
+  top: 44px;
+  right: 8px;
+  display: grid;
+  width: 58px;
+  justify-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.site-card-side.no-lan {
+  padding-top: 30px;
 }
 
 .open-method-icon {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   border-color: transparent;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--surface-raised);
   color: var(--text-main);
 }
@@ -3943,7 +4049,7 @@ body,
 
 .site-menu-button {
   top: 12px;
-  right: 12px;
+  right: 20px;
   width: 34px;
   height: 24px;
   border: 0;
@@ -4575,6 +4681,45 @@ body,
     padding-bottom: 28px;
   }
 
+  .toolbar-top {
+    min-height: 128px;
+    justify-items: stretch;
+  }
+
+  .toolbar-actions {
+    position: absolute;
+    top: 98px;
+    right: 0;
+    bottom: auto;
+    left: auto;
+    display: inline-flex;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    visibility: visible;
+  }
+
+  :root[data-theme='dark'] .toolbar-actions {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .toolbar-menu {
+    top: 50px;
+  }
+
+  .filter-bar {
+    grid-template-columns: 1fr;
+  }
+
   .search-box {
     width: 100%;
     height: 52px;
@@ -4597,51 +4742,51 @@ body,
   }
 
   .site-grid {
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: 1fr;
     gap: 12px;
   }
 
   .site-card {
-    min-height: 104px;
-    padding: 16px 60px 16px 16px;
+    min-height: 116px;
+    padding: 26px 76px 26px 20px;
   }
 
   .site-main {
-    grid-template-columns: 48px minmax(0, 1fr);
-    gap: 12px;
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 14px;
   }
 
   .site-icon {
-    width: 48px;
-    height: 48px;
+    width: 62px;
+    height: 62px;
   }
 
   .image-icon img {
-    width: 28px;
-    height: 28px;
+    width: 34px;
+    height: 34px;
   }
 
   .site-title-row h2 {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .site-copy p {
     font-size: 13px;
   }
 
-  .site-card-tools {
-    right: 14px;
-    bottom: 14px;
+  .site-card-side {
+    top: 44px;
+    right: 8px;
   }
 
   .open-method-icon {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
   }
 
   .toolbar-actions {
-    border-color: var(--line-soft);
-    background: var(--surface-bg);
+    border-color: transparent;
+    background: transparent;
   }
 
   .mobile-settings-head {
