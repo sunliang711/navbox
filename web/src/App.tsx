@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  Compass,
   Copy,
   ExternalLink,
   Heart,
@@ -22,6 +23,7 @@ type OpenMethod = 'new_window' | 'current_window';
 
 const preferLanKey = 'navbox_prefer_lan';
 const previewEnabledKey = 'navbox_preview_enabled';
+const tagMultiSelectKey = 'navbox_tag_multiselect';
 const tagQueryKey = 'tags';
 const tagMatchQueryKey = 'match';
 const viewQueryKey = 'view';
@@ -45,6 +47,7 @@ function VisitorApp() {
   const [view, setView] = useState<ViewMode>('all');
   const [preferLan, setPreferLan] = useState(() => loadPreferLan());
   const [previewEnabled, setPreviewEnabled] = useState(() => loadPreviewEnabled());
+  const [multiSelect, setMultiSelect] = useState(() => loadMultiSelect());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
@@ -205,8 +208,21 @@ function VisitorApp() {
   function toggleTag(tagId: string) {
     setView('all');
     setSelectedTagIds((current) => {
-      const next = current.includes(tagId) ? current.filter((item) => item !== tagId) : [...current, tagId];
+      let next: string[];
+      if (multiSelect) {
+        next = current.includes(tagId) ? current.filter((item) => item !== tagId) : [...current, tagId];
+      } else {
+        next = current.length === 1 && current[0] === tagId ? [] : [tagId];
+      }
       saveVisitorQueryState('all', next, tagMatch);
+      return next;
+    });
+  }
+
+  function toggleMultiSelect() {
+    setMultiSelect((current) => {
+      const next = !current;
+      saveMultiSelect(next);
       return next;
     });
   }
@@ -250,6 +266,12 @@ function VisitorApp() {
       <section className="content">
         <header className="toolbar">
           <div className="toolbar-top">
+            <a className="brand" href="/" aria-label="Navbox">
+              <span className="brand-mark" aria-hidden="true">
+                <Compass size={18} aria-hidden="true" />
+              </span>
+              <span className="brand-name">Navbox</span>
+            </a>
             <div className="search-box">
               <Search size={18} aria-hidden="true" />
               <input
@@ -342,6 +364,13 @@ function VisitorApp() {
                 {t('recentVisits')}
               </button>
             </nav>
+            <label className={multiSelect ? 'filter-toggle active' : 'filter-toggle'}>
+              <span>{t('multiSelectTags')}</span>
+              <input type="checkbox" checked={multiSelect} onChange={toggleMultiSelect} />
+              <span className="toggle-track" aria-hidden="true">
+                <span className="toggle-thumb" />
+              </span>
+            </label>
             {view === 'all' && selectedTagIds.length > 1 && (
               <div className="tag-match-toggle" role="group" aria-label={t('tagMatchMode')}>
                 <button
@@ -763,6 +792,22 @@ function loadPreferLan(): boolean {
 function savePreferLan(value: boolean) {
   try {
     window.localStorage.setItem(preferLanKey, String(value));
+  } catch {
+    // localStorage 不可用时只保留当前会话状态。
+  }
+}
+
+function loadMultiSelect(): boolean {
+  try {
+    return window.localStorage.getItem(tagMultiSelectKey) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveMultiSelect(value: boolean) {
+  try {
+    window.localStorage.setItem(tagMultiSelectKey, String(value));
   } catch {
     // localStorage 不可用时只保留当前会话状态。
   }

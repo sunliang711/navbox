@@ -2,9 +2,12 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
+  CircleDashed,
   Download,
   FileUp,
+  Globe,
   GripVertical,
+  Heart,
   KeyRound,
   LogIn,
   LogOut,
@@ -21,7 +24,7 @@ import {
   Upload,
   X
 } from 'lucide-react';
-import { type ChangeEvent, type DragEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, type DragEvent, type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   batchDeleteSites,
   batchUpdateSiteTags,
@@ -56,6 +59,13 @@ type AdminTab = 'sites' | 'tags' | 'io' | 'password';
 type ExportMode = 'all' | 'sites' | 'tags';
 type FavoriteFilter = 'all' | 'favorites';
 
+type ConfirmRequest = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  action: () => void;
+};
+
 const emptySiteForm: SiteSaveReq = {
   title: '',
   description: '',
@@ -74,7 +84,7 @@ const emptySiteForm: SiteSaveReq = {
 const emptyTagForm: TagSaveReq = {
   name: '',
   icon: '',
-  color: '#2f7d6d',
+  color: '#6366f1',
   sort_order: 0,
   is_enabled: true
 };
@@ -118,6 +128,7 @@ export function AdminApp() {
   const [mobileSiteActionsOpen, setMobileSiteActionsOpen] = useState(false);
   const [mobileTagActionsOpen, setMobileTagActionsOpen] = useState(false);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const [restoreForm, setRestoreForm] = useState({ token: '', next: '', confirm: '' });
   const [restoreNotice, setRestoreNotice] = useState('');
@@ -337,10 +348,16 @@ export function AdminApp() {
     }
   }
 
-  async function removeSite(id: string) {
-    if (!window.confirm(t('confirmDeleteSite'))) {
-      return;
-    }
+  function removeSite(site: Site) {
+    setConfirmRequest({
+      title: t('deleteSite'),
+      message: t('confirmDeleteSiteNamed', { title: site.title }),
+      confirmLabel: t('confirmDelete'),
+      action: () => performRemoveSite(site.id)
+    });
+  }
+
+  async function performRemoveSite(id: string) {
     try {
       await deleteSite(id);
       setSelectedSiteIds((current) => current.filter((item) => item !== id));
@@ -410,7 +427,7 @@ export function AdminApp() {
     setTagDraft({
       name: tag.name,
       icon: tag.icon,
-      color: tag.color || '#2f7d6d',
+      color: tag.color || '#6366f1',
       sort_order: tag.sort_order,
       is_enabled: tag.is_enabled
     });
@@ -436,10 +453,16 @@ export function AdminApp() {
     }
   }
 
-  async function removeTag(id: string) {
-    if (!window.confirm(t('confirmDeleteTag'))) {
-      return;
-    }
+  function removeTag(tag: Tag) {
+    setConfirmRequest({
+      title: t('deleteTag'),
+      message: t('confirmDeleteTagNamed', { name: tag.name }),
+      confirmLabel: t('confirmDelete'),
+      action: () => performRemoveTag(tag.id)
+    });
+  }
+
+  async function performRemoveTag(id: string) {
     try {
       await deleteTag(id);
       setNotice(t('tagDeleted'));
@@ -552,10 +575,19 @@ export function AdminApp() {
     }
   }
 
-  async function handleBatchDelete() {
-    if (selectedSiteIds.length === 0 || !window.confirm(t('confirmBatchDelete', { count: selectedSiteIds.length }))) {
+  function handleBatchDelete() {
+    if (selectedSiteIds.length === 0) {
       return;
     }
+    setConfirmRequest({
+      title: t('batchDelete'),
+      message: t('confirmBatchDelete', { count: selectedSiteIds.length }),
+      confirmLabel: t('confirmDelete'),
+      action: performBatchDelete
+    });
+  }
+
+  async function performBatchDelete() {
     try {
       await batchDeleteSites(selectedSiteIds);
       setSelectedSiteIds([]);
@@ -878,24 +910,32 @@ export function AdminApp() {
 
       <section className="admin-stat-grid" aria-label={t('adminStats', { sites: sites.length, tags: tags.length })}>
         <div className="admin-stat-card">
-          <span>{t('totalSites')}</span>
-          <strong>{sites.length}</strong>
-          <em>{t('healthyStatus')}</em>
+          <span className="stat-icon"><Globe size={18} aria-hidden="true" /></span>
+          <div className="stat-copy">
+            <strong>{sites.length}</strong>
+            <span>{t('totalSites')}</span>
+          </div>
         </div>
         <div className="admin-stat-card">
-          <span>{t('totalTags')}</span>
-          <strong>{tags.length}</strong>
-          <em>{t('healthyStatus')}</em>
+          <span className="stat-icon stat-icon-tags"><Tags size={18} aria-hidden="true" /></span>
+          <div className="stat-copy">
+            <strong>{tags.length}</strong>
+            <span>{t('totalTags')}</span>
+          </div>
         </div>
         <div className="admin-stat-card">
-          <span>{t('pendingSave')}</span>
-          <strong>0</strong>
-          <em>{t('healthyStatus')}</em>
+          <span className="stat-icon stat-icon-favorite"><Heart size={18} aria-hidden="true" /></span>
+          <div className="stat-copy">
+            <strong>{sites.filter((site) => site.is_favorite).length}</strong>
+            <span>{t('favoriteSites')}</span>
+          </div>
         </div>
         <div className="admin-stat-card">
-          <span>{t('currentModule')}</span>
-          <strong>{currentAdminTitle}</strong>
-          <em>{t('healthyStatus')}</em>
+          <span className="stat-icon stat-icon-untagged"><CircleDashed size={18} aria-hidden="true" /></span>
+          <div className="stat-copy">
+            <strong>{sites.filter((site) => site.tags.length === 0).length}</strong>
+            <span>{t('uncategorizedSites')}</span>
+          </div>
         </div>
       </section>
 
@@ -1054,7 +1094,7 @@ export function AdminApp() {
                         <button type="button" onClick={() => openEditSite(site)} title={t('editSite')}>
                           <Pencil size={16} aria-hidden="true" />
                         </button>
-                        <button className="row-danger" type="button" onClick={() => removeSite(site.id)} title={t('deleteSite')}>
+                        <button className="row-danger" type="button" onClick={() => removeSite(site)} title={t('deleteSite')}>
                           <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </div>
@@ -1076,7 +1116,7 @@ export function AdminApp() {
                 canMoveDown={index < filteredSites.length - 1}
                 onToggleSelection={() => toggleSiteSelection(site.id)}
                 onEdit={() => openEditSite(site)}
-                onDelete={() => removeSite(site.id)}
+                onDelete={() => removeSite(site)}
                 onMoveUp={() => moveSiteByStep(site.id, -1)}
                 onMoveDown={() => moveSiteByStep(site.id, 1)}
               />
@@ -1186,7 +1226,7 @@ export function AdminApp() {
                     </td>
                     <td className="site-cell" data-label="Tag">
                       <strong>
-                        <span className="color-swatch" style={{ background: tag.color || '#2f7d6d' }} />
+                        <span className="color-swatch" style={{ background: tag.color || '#6366f1' }} />
                         {tag.name}
                       </strong>
                       <span>{tag.icon || t('noIcon')}</span>
@@ -1215,7 +1255,7 @@ export function AdminApp() {
                         <button type="button" onClick={() => openEditTag(tag)} title={t('editTag')}>
                           <Pencil size={16} aria-hidden="true" />
                         </button>
-                        <button className="row-danger" type="button" onClick={() => removeTag(tag.id)} title={t('deleteTag')}>
+                        <button className="row-danger" type="button" onClick={() => removeTag(tag)} title={t('deleteTag')}>
                           <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </div>
@@ -1235,7 +1275,7 @@ export function AdminApp() {
                 canMoveDown={index < filteredTags.length - 1}
                 onSetDefault={() => makeDefaultTag(tag.id)}
                 onEdit={() => openEditTag(tag)}
-                onDelete={() => removeTag(tag.id)}
+                onDelete={() => removeTag(tag)}
                 onMoveUp={() => moveTagByStep(tag.id, -1)}
                 onMoveDown={() => moveTagByStep(tag.id, 1)}
               />
@@ -1446,8 +1486,93 @@ export function AdminApp() {
           <TagForm draft={tagDraft} onChange={setTagDraft} onSubmit={submitTag} />
         </SidePanel>
       )}
+
+      {confirmRequest && (
+        <ConfirmDialog
+          title={confirmRequest.title}
+          message={confirmRequest.message}
+          confirmLabel={confirmRequest.confirmLabel}
+          onCancel={() => setConfirmRequest(null)}
+          onConfirm={() => {
+            const { action } = confirmRequest;
+            setConfirmRequest(null);
+            action();
+          }}
+        />
+      )}
     </main>
   );
+}
+
+function ConfirmDialog({
+  title,
+  message,
+  confirmLabel,
+  onCancel,
+  onConfirm
+}: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = usePreferences();
+  const cancelRef = useRef<HTMLButtonElement | null>(null);
+  useBodyScrollLock(true);
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onCancel();
+      }
+    }
+
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onCancel]);
+
+  return (
+    <div className="confirm-backdrop" onClick={onCancel} role="presentation">
+      <div
+        className="confirm-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span className="confirm-icon" aria-hidden="true">
+          <Trash2 size={21} aria-hidden="true" />
+        </span>
+        <h2>{title}</h2>
+        <p>{message}</p>
+        <div className="confirm-actions">
+          <button className="confirm-cancel" type="button" ref={cancelRef} onClick={onCancel}>
+            {t('cancel')}
+          </button>
+          <button className="confirm-danger-button" type="button" onClick={onConfirm}>
+            <Trash2 size={16} aria-hidden="true" />
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function useBodyScrollLock(active: boolean) {
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [active]);
 }
 
 function MobileAdminMenu({
@@ -1462,6 +1587,7 @@ function MobileAdminMenu({
   onLogout: () => void;
 }) {
   const { t } = usePreferences();
+  useBodyScrollLock(open);
   if (!open) {
     return null;
   }
@@ -1502,6 +1628,7 @@ function MobileActionMenu({
   onClose: () => void;
 }) {
   const { t } = usePreferences();
+  useBodyScrollLock(open);
   if (!open) {
     return null;
   }
@@ -1693,7 +1820,7 @@ function MobileTagCard({
       <div className="mobile-card-head">
         <div className="mobile-card-title">
           <strong>
-            <span className="color-swatch" style={{ background: tag.color || '#2f7d6d' }} />
+            <span className="color-swatch" style={{ background: tag.color || '#6366f1' }} />
             {tag.name}
           </strong>
           <span>{tag.icon || t('noIcon')}</span>
@@ -1795,6 +1922,7 @@ function MobileTagSheet({
   onClose: () => void;
 }) {
   const { t } = usePreferences();
+  useBodyScrollLock(open);
   if (!open) {
     return null;
   }
@@ -1884,6 +2012,7 @@ function BatchTagBar({
 
 function SidePanel({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   const { t } = usePreferences();
+  useBodyScrollLock(true);
 
   return (
     <div className="panel-backdrop">
@@ -2047,7 +2176,7 @@ function TagForm({
       <div className="form-grid">
         <label>
           <span>{t('color')}</span>
-          <input type="color" value={draft.color || '#2f7d6d'} onChange={(event) => patch({ color: event.target.value })} />
+          <input type="color" value={draft.color || '#6366f1'} onChange={(event) => patch({ color: event.target.value })} />
         </label>
         <label>
           <span>{t('sort')}</span>
