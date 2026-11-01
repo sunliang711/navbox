@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,10 +22,37 @@ import (
 )
 
 const (
-	faviconFetchTimeout  = 5 * time.Second
-	faviconHTMLReadLimit = 256 * 1024
-	faviconMaxCandidates = 8
+	faviconFetchTimeout          = 5 * time.Second
+	faviconHTMLReadLimit         = 256 * 1024
+	faviconManifestReadLimit     = 64 * 1024
+	faviconMaxPageCandidates     = 8
+	faviconMaxManifestCandidates = 4
+	faviconMaxManifests          = 2
+	faviconMaxCandidates         = 16
+	navboxUserAgent              = "Navbox/1.0"
+	browserUserAgent             = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
+
+type faviconRequestProfile struct {
+	userAgent      string
+	acceptLanguage string
+}
+
+type pageIconResources struct {
+	icons     []*url.URL
+	manifests []*url.URL
+}
+
+type webManifest struct {
+	Icons []struct {
+		Src string `json:"src"`
+	} `json:"icons"`
+}
+
+var faviconRequestProfiles = []faviconRequestProfile{
+	{userAgent: navboxUserAgent},
+	{userAgent: browserUserAgent, acceptLanguage: "en-US,en;q=0.9"},
+}
 
 func (s *iconService) FetchIcon(ctx context.Context, websiteURL string) (*dto.IconResp, error) {
 	baseURL, err := normalizeWebsiteURL(websiteURL)
@@ -50,78 +78,158 @@ func (s *iconService) FetchIcon(ctx context.Context, websiteURL string) (*dto.Ic
 }
 
 func (s *iconService) fetchAndStoreIcon(ctx context.Context, client *http.Client, iconURL *url.URL) (*dto.IconResp, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, iconURL.String(), nil)
-	if err != nil {
-		return nil, ErrInvalidInput
-	}
-	req.Header.Set("Accept", "image/avif,image/webp,image/png,image/jpeg,image/gif,image/x-icon,*/*;q=0.8")
-	req.Header.Set("User-Agent", "Navbox/1.0")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, ErrNotFound
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, ErrNotFound
-	}
-
-	stored, err := s.store.SaveReader(resp.Body)
-	if err != nil {
-		if errors.Is(err, storage.ErrInvalidIcon) || errors.Is(err, storage.ErrIconTooLarge) {
+	var lastErr error
+	for _, profile := range faviconRequestProfiles {
+		req, err := newFaviconRequest(ctx, iconURL, "image/avif,image/webp,image/png,image/jpeg,image/gif,image/x-icon,*/*;q=0.8", profile)
+		if err != nil {
 			return nil, ErrInvalidInput
 		}
-		return nil, err
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = ErrNotFound
+			continue
+		}
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			_ = resp.Body.Close()
+			lastErr = ErrNotFound
+			continue
+		}
+
+		stored, err := s.store.SaveReader(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			if errors.Is(err, storage.ErrInvalidIcon) || errors.Is(err, storage.ErrIconTooLarge) {
+				lastErr = ErrInvalidInput
+				continue
+			}
+			return nil, err
+		}
+		return s.saveStoredIcon(ctx, stored)
 	}
-	return s.saveStoredIcon(ctx, stored)
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, ErrNotFound
 }
 
 func loadIconCandidates(ctx context.Context, client *http.Client, baseURL *url.URL) []*url.URL {
-	candidates := make([]*url.URL, 0, faviconMaxCandidates+1)
-	seen := make(map[string]struct{}, faviconMaxCandidates+1)
+	candidates := make([]*url.URL, 0, faviconMaxCandidates)
+	seen := make(map[string]struct{}, faviconMaxCandidates)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
-	if err == nil {
-		req.Header.Set("Accept", "text/html,application/xhtml+xml")
-		req.Header.Set("User-Agent", "Navbox/1.0")
-		resp, err := client.Do(req)
-		if err == nil {
-			defer resp.Body.Close()
-			if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
-				content, readErr := io.ReadAll(io.LimitReader(resp.Body, faviconHTMLReadLimit+1))
-				if readErr == nil && len(content) <= faviconHTMLReadLimit {
-					for _, candidate := range extractIconCandidates(bytes.NewReader(content), resp.Request.URL) {
-						candidates = appendIconCandidate(candidates, seen, candidate)
-						if len(candidates) >= faviconMaxCandidates {
-							break
-						}
-					}
-				}
-				baseURL = resp.Request.URL
+	resources, finalURL := loadPageIconResources(ctx, client, baseURL)
+	baseURL = finalURL
+	for _, candidate := range resources.icons {
+		candidates = appendIconCandidate(candidates, seen, candidate)
+		if len(candidates) >= faviconMaxPageCandidates {
+			break
+		}
+	}
+
+	manifestCandidates := 0
+	for index, manifestURL := range resources.manifests {
+		if index >= faviconMaxManifests || manifestCandidates >= faviconMaxManifestCandidates {
+			break
+		}
+		if validateFetchURL(manifestURL) != nil {
+			continue
+		}
+		for _, candidate := range loadManifestIconCandidates(ctx, client, manifestURL) {
+			before := len(candidates)
+			candidates = appendIconCandidate(candidates, seen, candidate)
+			if len(candidates) > before {
+				manifestCandidates++
+			}
+			if manifestCandidates >= faviconMaxManifestCandidates {
+				break
 			}
 		}
 	}
 
-	fallback := baseURL.ResolveReference(&url.URL{Path: "/favicon.ico"})
-	return appendIconCandidate(candidates, seen, fallback)
+	for _, path := range []string{"/favicon.ico", "/favicon.png", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"} {
+		candidates = appendIconCandidate(candidates, seen, baseURL.ResolveReference(&url.URL{Path: path}))
+	}
+	if len(candidates) > faviconMaxCandidates {
+		return candidates[:faviconMaxCandidates]
+	}
+	return candidates
 }
 
-func extractIconCandidates(reader io.Reader, baseURL *url.URL) []*url.URL {
+func loadPageIconResources(ctx context.Context, client *http.Client, baseURL *url.URL) (pageIconResources, *url.URL) {
+	finalURL := baseURL
+	for _, profile := range faviconRequestProfiles {
+		req, err := newFaviconRequest(ctx, baseURL, "text/html,application/xhtml+xml", profile)
+		if err != nil {
+			return pageIconResources{}, finalURL
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			_ = resp.Body.Close()
+			continue
+		}
+		content, readErr := io.ReadAll(io.LimitReader(resp.Body, faviconHTMLReadLimit+1))
+		_ = resp.Body.Close()
+		if resp.Request != nil && resp.Request.URL != nil {
+			finalURL = resp.Request.URL
+		}
+		if readErr != nil || len(content) > faviconHTMLReadLimit {
+			return pageIconResources{}, finalURL
+		}
+		resources := extractPageIconResources(bytes.NewReader(content), finalURL)
+		return resources, finalURL
+	}
+	return pageIconResources{}, finalURL
+}
+
+func loadManifestIconCandidates(ctx context.Context, client *http.Client, manifestURL *url.URL) []*url.URL {
+	for _, profile := range faviconRequestProfiles {
+		req, err := newFaviconRequest(ctx, manifestURL, "application/manifest+json,application/json", profile)
+		if err != nil {
+			return nil
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			_ = resp.Body.Close()
+			continue
+		}
+		content, readErr := io.ReadAll(io.LimitReader(resp.Body, faviconManifestReadLimit+1))
+		_ = resp.Body.Close()
+		if readErr != nil || len(content) > faviconManifestReadLimit {
+			return nil
+		}
+		baseURL := manifestURL
+		if resp.Request != nil && resp.Request.URL != nil {
+			baseURL = resp.Request.URL
+		}
+		return extractManifestIconCandidates(content, baseURL)
+	}
+	return nil
+}
+
+func extractPageIconResources(reader io.Reader, baseURL *url.URL) pageIconResources {
 	doc, err := html.Parse(reader)
 	if err != nil {
-		return nil
+		return pageIconResources{}
 	}
 
-	var result []*url.URL
+	result := pageIconResources{}
 	var walk func(*html.Node)
 	walk = func(node *html.Node) {
 		if node.Type == html.ElementNode && strings.EqualFold(node.Data, "link") {
 			attrs := htmlAttrs(node)
-			if relIncludesIcon(attrs["rel"]) {
-				if href := strings.TrimSpace(attrs["href"]); href != "" {
-					if parsed, err := url.Parse(href); err == nil {
-						result = append(result, baseURL.ResolveReference(parsed))
+			if href := strings.TrimSpace(attrs["href"]); href != "" {
+				if parsed, err := url.Parse(href); err == nil {
+					switch {
+					case relIncludesIcon(attrs["rel"]):
+						result.icons = append(result.icons, baseURL.ResolveReference(parsed))
+					case relIncludesToken(attrs["rel"], "manifest"):
+						result.manifests = append(result.manifests, baseURL.ResolveReference(parsed))
 					}
 				}
 			}
@@ -131,6 +239,27 @@ func extractIconCandidates(reader io.Reader, baseURL *url.URL) []*url.URL {
 		}
 	}
 	walk(doc)
+	return result
+}
+
+func extractManifestIconCandidates(content []byte, baseURL *url.URL) []*url.URL {
+	var manifest webManifest
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		return nil
+	}
+
+	result := make([]*url.URL, 0, len(manifest.Icons))
+	for _, icon := range manifest.Icons {
+		src := strings.TrimSpace(icon.Src)
+		if src == "" {
+			continue
+		}
+		parsed, err := url.Parse(src)
+		if err != nil {
+			continue
+		}
+		result = append(result, baseURL.ResolveReference(parsed))
+	}
 	return result
 }
 
@@ -149,6 +278,28 @@ func relIncludesIcon(rel string) bool {
 		}
 	}
 	return false
+}
+
+func relIncludesToken(rel string, target string) bool {
+	for _, token := range strings.Fields(strings.ToLower(rel)) {
+		if token == target {
+			return true
+		}
+	}
+	return false
+}
+
+func newFaviconRequest(ctx context.Context, targetURL *url.URL, accept string, profile faviconRequestProfile) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", accept)
+	req.Header.Set("User-Agent", profile.userAgent)
+	if profile.acceptLanguage != "" {
+		req.Header.Set("Accept-Language", profile.acceptLanguage)
+	}
+	return req, nil
 }
 
 func appendIconCandidate(candidates []*url.URL, seen map[string]struct{}, candidate *url.URL) []*url.URL {

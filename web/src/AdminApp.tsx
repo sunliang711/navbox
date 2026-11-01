@@ -51,9 +51,10 @@ import {
   updateTagOrder,
   uploadIcon
 } from './api';
+import { fetchAndUploadBrowserIcon } from './browserIcon';
 import { PreferenceControls, usePreferences } from './preferences';
 import { VersionBadge } from './version';
-import type { ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
+import type { IconResp, ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
 
 type AdminTab = 'sites' | 'tags' | 'io' | 'password';
 type ExportMode = 'all' | 'sites' | 'tags';
@@ -400,7 +401,15 @@ export function AdminApp() {
 
     setIconFetching(true);
     try {
-      const icon = await fetchWebsiteIcon(targetURL);
+      let icon: IconResp;
+      try {
+        icon = await fetchWebsiteIcon(targetURL);
+      } catch (error) {
+        if (handleAdminError(error)) {
+          return;
+        }
+        icon = await fetchAndUploadBrowserIcon(targetURL);
+      }
       setSiteDraft((current) => ({
         ...current,
         icon_type: 'image',

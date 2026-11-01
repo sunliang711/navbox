@@ -1,6 +1,7 @@
 package service
 
 import (
+	"io"
 	"net"
 	"net/http"
 	"net/netip"
@@ -39,23 +40,127 @@ func TestNormalizeWebsiteURL(t *testing.T) {
 	}
 }
 
-func TestExtractIconCandidates(t *testing.T) {
+func TestExtractPageIconResources(t *testing.T) {
 	baseURL, err := url.Parse("https://example.com/apps/")
 	require.NoError(t, err)
 
-	candidates := extractIconCandidates(strings.NewReader(`
+	resources := extractPageIconResources(strings.NewReader(`
 		<html>
 			<head>
 				<link rel="stylesheet" href="/app.css">
 				<link rel="apple-touch-icon" href="/apple.png">
 				<link rel="shortcut icon" href="favicon.ico">
+				<link rel="manifest" href="/site.webmanifest">
 			</head>
 		</html>
 	`), baseURL)
 
+	require.Len(t, resources.icons, 2)
+	require.Equal(t, "https://example.com/apple.png", resources.icons[0].String())
+	require.Equal(t, "https://example.com/apps/favicon.ico", resources.icons[1].String())
+	require.Len(t, resources.manifests, 1)
+	require.Equal(t, "https://example.com/site.webmanifest", resources.manifests[0].String())
+}
+
+func TestExtractManifestIconCandidates(t *testing.T) {
+	baseURL, err := url.Parse("https://example.com/assets/site.webmanifest")
+	require.NoError(t, err)
+
+	candidates := extractManifestIconCandidates([]byte(`{
+		"icons": [
+			{"src": "icon-192.png"},
+			{"src": "/icon-512.png"},
+			{"src": ""}
+		]
+	}`), baseURL)
+
 	require.Len(t, candidates, 2)
-	require.Equal(t, "https://example.com/apple.png", candidates[0].String())
-	require.Equal(t, "https://example.com/apps/favicon.ico", candidates[1].String())
+	require.Equal(t, "https://example.com/assets/icon-192.png", candidates[0].String())
+	require.Equal(t, "https://example.com/icon-512.png", candidates[1].String())
+}
+
+func TestNewFaviconRequestBrowserProfile(t *testing.T) {
+	targetURL, err := url.Parse("https://example.com/favicon.ico")
+	require.NoError(t, err)
+
+	req, err := newFaviconRequest(t.Context(), targetURL, "image/*", faviconRequestProfiles[1])
+
+	require.NoError(t, err)
+	require.Equal(t, browserUserAgent, req.Header.Get("User-Agent"))
+	require.Equal(t, "en-US,en;q=0.9", req.Header.Get("Accept-Language"))
+	require.Equal(t, "image/*", req.Header.Get("Accept"))
+}
+
+func TestLoadIconCandidatesIncludesManifestAndCommonPaths(t *testing.T) {
+	baseURL, err := url.Parse("https://example.com/apps/home")
+	require.NoError(t, err)
+
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/apps/home":
+			return testHTTPResponse(req, http.StatusOK, `<html><head><link rel="icon" href="/page-icon.png"><link rel="manifest" href="/site.webmanifest"></head></html>`), nil
+		case "/site.webmanifest":
+			return testHTTPResponse(req, http.StatusOK, `{"icons":[{"src":"/manifest-icon.png"}]}`), nil
+		default:
+			return testHTTPResponse(req, http.StatusNotFound, ""), nil
+		}
+	})}
+
+	candidates := loadIconCandidates(t.Context(), client, baseURL)
+	values := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		values = append(values, candidate.String())
+	}
+
+	require.Equal(t, []string{
+		"https://example.com/page-icon.png",
+		"https://example.com/manifest-icon.png",
+		"https://example.com/favicon.ico",
+		"https://example.com/favicon.png",
+		"https://example.com/apple-touch-icon.png",
+		"https://example.com/apple-touch-icon-precomposed.png",
+	}, values)
+}
+
+func TestLoadPageIconResourcesRetriesWithBrowserProfile(t *testing.T) {
+	baseURL, err := url.Parse("https://example.com/")
+	require.NoError(t, err)
+
+	var userAgents []string
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		userAgents = append(userAgents, req.Header.Get("User-Agent"))
+		if req.Header.Get("User-Agent") == navboxUserAgent {
+			return testHTTPResponse(req, http.StatusForbidden, ""), nil
+		}
+		return testHTTPResponse(req, http.StatusOK, `<html><head><link rel="icon" href="/browser-icon.png"></head></html>`), nil
+	})}
+
+	resources, finalURL := loadPageIconResources(t.Context(), client, baseURL)
+
+	require.Equal(t, baseURL.String(), finalURL.String())
+	require.Len(t, resources.icons, 1)
+	require.Equal(t, "https://example.com/browser-icon.png", resources.icons[0].String())
+	require.Equal(t, []string{navboxUserAgent, browserUserAgent}, userAgents)
+}
+
+func TestLoadIconCandidatesDoesNotRetrySuccessfulPageWithoutDeclaredIcons(t *testing.T) {
+	baseURL, err := url.Parse("https://example.com/")
+	require.NoError(t, err)
+
+	pageRequests := 0
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path == "/" {
+			pageRequests++
+			return testHTTPResponse(req, http.StatusOK, "<html><head></head></html>"), nil
+		}
+		return testHTTPResponse(req, http.StatusNotFound, ""), nil
+	})}
+
+	candidates := loadIconCandidates(t.Context(), client, baseURL)
+
+	require.Equal(t, 1, pageRequests)
+	require.Len(t, candidates, 4)
+	require.Equal(t, "https://example.com/favicon.ico", candidates[0].String())
 }
 
 func TestIsAllowedFetchIP(t *testing.T) {
@@ -108,5 +213,20 @@ func TestNewRestrictedHTTPClientTLSVerifyConfig(t *testing.T) {
 				require.False(t, transport.TLSClientConfig.InsecureSkipVerify)
 			}
 		})
+	}
+}
+
+type roundTripFunc func(req *http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func testHTTPResponse(req *http.Request, statusCode int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: statusCode,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    req,
+		Header:     make(http.Header),
 	}
 }
