@@ -3,6 +3,7 @@ import {
   ArrowUp,
   Check,
   CircleDashed,
+  Clock,
   Download,
   FileUp,
   Globe,
@@ -16,6 +17,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  ScrollText,
   Search,
   Settings,
   Shield,
@@ -51,12 +53,14 @@ import {
   updateTagOrder,
   uploadIcon
 } from './api';
+import { AuditPanel } from './AuditPanel';
 import { fetchAndUploadBrowserIcon } from './browserIcon';
+import { CronPanel } from './CronPanel';
 import { PreferenceControls, usePreferences } from './preferences';
 import { VersionBadge } from './version';
 import type { IconResp, ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
 
-type AdminTab = 'sites' | 'tags' | 'io' | 'password';
+type AdminTab = 'sites' | 'tags' | 'io' | 'cron' | 'audit' | 'password';
 type ExportMode = 'all' | 'sites' | 'tags';
 type FavoriteFilter = 'all' | 'favorites';
 
@@ -237,6 +241,12 @@ export function AdminApp() {
     }
     if (tab === 'io') {
       return t('importExportTab');
+    }
+    if (tab === 'cron') {
+      return t('cronTab');
+    }
+    if (tab === 'audit') {
+      return t('auditTab');
     }
     if (tab === 'password') {
       return t('passwordTab');
@@ -880,6 +890,8 @@ export function AdminApp() {
           <AdminTabButton active={tab === 'sites'} onClick={() => setTab('sites')} icon={Settings} label={t('sitesTab')} mobileLabel={t('sitesTab')} />
           <AdminTabButton active={tab === 'tags'} onClick={() => setTab('tags')} icon={Tags} label={t('tagsTab')} mobileLabel={t('tagsTab')} />
           <AdminTabButton active={tab === 'io'} onClick={() => setTab('io')} icon={FileUp} label={t('importExportTab')} mobileLabel={t('importShortTab')} />
+          <AdminTabButton active={tab === 'cron'} onClick={() => setTab('cron')} icon={Clock} label={t('cronTab')} mobileLabel={t('cronShortTab')} />
+          <AdminTabButton active={tab === 'audit'} onClick={() => setTab('audit')} icon={ScrollText} label={t('auditTab')} mobileLabel={t('auditShortTab')} />
           <AdminTabButton active={tab === 'password'} onClick={() => setTab('password')} icon={KeyRound} label={t('passwordTab')} mobileLabel={t('passwordTab')} />
         </nav>
         <div className="admin-sidebar-status">
@@ -1419,6 +1431,14 @@ export function AdminApp() {
             )}
           </div>
         </section>
+      )}
+
+      {!loading && tab === 'cron' && (
+        <CronPanel onNotice={setNotice} onUnauthorized={handleAdminError} />
+      )}
+
+      {!loading && tab === 'audit' && (
+        <AuditPanel onUnauthorized={handleAdminError} />
       )}
 
       {!loading && tab === 'password' && (

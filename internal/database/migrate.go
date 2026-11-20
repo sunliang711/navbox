@@ -21,6 +21,10 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 		&model.AdminSetting{},
 		&model.AdminSession{},
 		&model.Icon{},
+		&model.SystemSetting{},
+		&model.AuditLog{},
+		&model.CronJob{},
+		&model.CronJobRun{},
 	); err != nil {
 		return fmt.Errorf("auto migrate database: %w", err)
 	}

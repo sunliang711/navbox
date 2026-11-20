@@ -26,6 +26,7 @@ type RestorePasswordService interface {
 
 type RestoreHandler struct {
 	service        RestorePasswordService
+	auditSvc       service.AuditService
 	cfg            config.Config
 	logger         zerolog.Logger
 	tokenMu        sync.Mutex
@@ -33,9 +34,10 @@ type RestoreHandler struct {
 	tokenExpiresAt time.Time
 }
 
-func NewRestoreHandler(cfg config.Config, logger zerolog.Logger, authService service.AuthService) *RestoreHandler {
+func NewRestoreHandler(cfg config.Config, logger zerolog.Logger, authService service.AuthService, auditSvc service.AuditService) *RestoreHandler {
 	return &RestoreHandler{
 		service:        authService,
+		auditSvc:       auditSvc,
 		cfg:            cfg,
 		logger:         logger.With().Str("component", "restore").Logger(),
 		tokenExpiresAt: time.Now().Add(restoreTokenTTL),
@@ -64,12 +66,14 @@ func (h *RestoreHandler) ResetAdminPassword(c *gin.Context) {
 
 	if !h.consumeRestoreToken(req.RestoreToken) {
 		h.logger.Warn().Str("remote_ip", c.ClientIP()).Msg("restore token rejected")
+		recordAdminAudit(c, h.auditSvc, "auth.restore_password", "admin_setting", "1", service.AuditStatusFailure, map[string]any{"reason": "invalid_token"})
 		response.Error(c, http.StatusForbidden, response.CodeForbidden, "Restore Token 无效、已过期或已使用")
 		return
 	}
 
 	if err := h.service.ResetPassword(c.Request.Context(), req.NewPassword); err != nil {
 		h.releaseRestoreToken()
+		recordAdminAudit(c, h.auditSvc, "auth.restore_password", "admin_setting", "1", service.AuditStatusFailure, map[string]any{"reason": "reset_failed"})
 		if errors.Is(err, service.ErrWeakPassword) {
 			response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "新密码强度不足")
 			return
@@ -79,6 +83,7 @@ func (h *RestoreHandler) ResetAdminPassword(c *gin.Context) {
 	}
 
 	h.logger.Info().Str("remote_ip", c.ClientIP()).Msg("admin password restored")
+	recordAdminAudit(c, h.auditSvc, "auth.restore_password", "admin_setting", "1", service.AuditStatusSuccess, nil)
 	response.OK(c, dto.RestoreAdminPasswordResp{Restored: true})
 }
 

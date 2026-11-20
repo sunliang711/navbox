@@ -11,11 +11,12 @@ import (
 )
 
 type TagHandler struct {
-	service service.TagService
+	service  service.TagService
+	auditSvc service.AuditService
 }
 
-func NewTagHandler(service service.TagService) *TagHandler {
-	return &TagHandler{service: service}
+func NewTagHandler(service service.TagService, auditSvc service.AuditService) *TagHandler {
+	return &TagHandler{service: service, auditSvc: auditSvc}
 }
 
 func (h *TagHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
@@ -60,6 +61,9 @@ func (h *TagHandler) CreateTag(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "tag.create", "tag", tag.ID, service.AuditStatusSuccess, map[string]any{
+		"name": tag.Name,
+	})
 	response.OK(c, tag)
 }
 
@@ -74,22 +78,29 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "tag.update", "tag", tag.ID, service.AuditStatusSuccess, map[string]any{
+		"name": tag.Name,
+	})
 	response.OK(c, tag)
 }
 
 func (h *TagHandler) DeleteTag(c *gin.Context) {
-	if err := h.service.DeleteTag(c.Request.Context(), c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := h.service.DeleteTag(c.Request.Context(), id); err != nil {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "tag.delete", "tag", id, service.AuditStatusSuccess, nil)
 	response.OK(c, gin.H{"deleted": true})
 }
 
 func (h *TagHandler) SetDefaultTag(c *gin.Context) {
-	if err := h.service.SetDefaultTag(c.Request.Context(), c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := h.service.SetDefaultTag(c.Request.Context(), id); err != nil {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "tag.set_default", "tag", id, service.AuditStatusSuccess, nil)
 	response.OK(c, gin.H{"updated": true})
 }
 
@@ -103,5 +114,8 @@ func (h *TagHandler) UpdateTagOrder(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "tag.reorder", "tag", "", service.AuditStatusSuccess, map[string]any{
+		"count": len(req.Items),
+	})
 	response.OK(c, gin.H{"updated": true})
 }

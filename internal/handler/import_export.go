@@ -14,12 +14,13 @@ import (
 )
 
 type ImportExportHandler struct {
-	service service.ImportExportService
-	logger  zerolog.Logger
+	service  service.ImportExportService
+	auditSvc service.AuditService
+	logger   zerolog.Logger
 }
 
-func NewImportExportHandler(service service.ImportExportService, logger zerolog.Logger) *ImportExportHandler {
-	return &ImportExportHandler{service: service, logger: logger}
+func NewImportExportHandler(service service.ImportExportService, auditSvc service.AuditService, logger zerolog.Logger) *ImportExportHandler {
+	return &ImportExportHandler{service: service, auditSvc: auditSvc, logger: logger}
 }
 
 func (h *ImportExportHandler) RegisterAdminRoutes(rg *gin.RouterGroup) {
@@ -39,10 +40,20 @@ func (h *ImportExportHandler) Export(c *gin.Context) {
 	archive, err := h.service.Export(c.Request.Context(), req)
 	if err != nil {
 		h.logger.Error().Err(err).Msg("Export config failed")
+		recordAdminAudit(c, h.auditSvc, "data.export", "archive", "", service.AuditStatusFailure, map[string]any{
+			"site_filter_count": len(req.SiteIDs),
+			"tag_filter_count":  len(req.TagIDs),
+		})
 		writeServiceError(c, err)
 		return
 	}
 
+	recordAdminAudit(c, h.auditSvc, "data.export", "archive", archive.FileName, service.AuditStatusSuccess, map[string]any{
+		"file_name":         archive.FileName,
+		"size_bytes":        len(archive.Content),
+		"site_filter_count": len(req.SiteIDs),
+		"tag_filter_count":  len(req.TagIDs),
+	})
 	c.Header("Content-Type", "application/zip")
 	c.Header("Content-Disposition", `attachment; filename="`+archive.FileName+`"`)
 	c.Data(http.StatusOK, "application/zip", archive.Content)
@@ -71,8 +82,17 @@ func (h *ImportExportHandler) Import(c *gin.Context) {
 	report, err := h.service.Import(c.Request.Context(), file)
 	if err != nil {
 		h.logger.Error().Err(err).Msg("Import config failed")
+		recordAdminAudit(c, h.auditSvc, "data.import", "archive", header.Filename, service.AuditStatusFailure, map[string]any{
+			"file_name":  header.Filename,
+			"size_bytes": header.Size,
+		})
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "data.import", "archive", header.Filename, service.AuditStatusSuccess, map[string]any{
+		"file_name": header.Filename,
+		"imported":  report.Imported,
+		"skipped":   report.Skipped,
+	})
 	response.OK(c, report)
 }

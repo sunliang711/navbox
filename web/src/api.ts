@@ -1,6 +1,10 @@
 import type {
   ApiResponse,
+  AuditListResp,
+  AuditQuery,
   BatchTagAction,
+  CronJob,
+  CronJobRun,
   ExportFile,
   IconResp,
   ImportReport,
@@ -13,7 +17,10 @@ import type {
   SiteQuery,
   SiteSaveReq,
   Tag,
-  TagSaveReq
+  TagSaveReq,
+  TestSafeKeepReq,
+  TestSafeKeepResp,
+  UpdateCronJobReq
 } from './types';
 
 export class UnauthorizedError extends Error {
@@ -39,13 +46,20 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (response.status === 401) {
     throw new UnauthorizedError();
   }
-  if (!response.ok) {
-    throw new Error('request failed');
+  const text = await response.text();
+  let body: ApiResponse<T> | null = null;
+  if (text) {
+    try {
+      body = JSON.parse(text) as ApiResponse<T>;
+    } catch {
+      body = null;
+    }
   }
-
-  const body = (await response.json()) as ApiResponse<T>;
-  if (body.code !== 200) {
-    throw new Error(body.message || 'request failed');
+  if (!response.ok) {
+    throw new Error(body?.message || 'request failed');
+  }
+  if (!body || body.code !== 200) {
+    throw new Error(body?.message || 'request failed');
   }
   return body.data;
 }
@@ -212,6 +226,76 @@ export async function importConfig(file: File): Promise<ImportReport> {
     method: 'POST',
     body: data
   });
+}
+
+export function listCronJobs(): Promise<{ items: CronJob[] }> {
+  return request<{ items: CronJob[] }>('/api/v1/admin/cron-jobs');
+}
+
+export function previewCronSchedule(schedule: string): Promise<{ next_runs: string[] }> {
+  return jsonRequest<{ next_runs: string[] }>('/api/v1/admin/cron-jobs/preview', 'POST', { schedule });
+}
+
+export function updateCronJob(id: string, req: UpdateCronJobReq): Promise<CronJob> {
+  return jsonRequest<CronJob>(`/api/v1/admin/cron-jobs/${id}`, 'PUT', req);
+}
+
+export function runCronJob(id: string): Promise<CronJobRun> {
+  return jsonRequest<CronJobRun>(`/api/v1/admin/cron-jobs/${id}/run`, 'POST');
+}
+
+export function listCronRuns(id: string, limit = 20): Promise<{ items: CronJobRun[] }> {
+  return request<{ items: CronJobRun[] }>(`/api/v1/admin/cron-jobs/${id}/runs?limit=${limit}`);
+}
+
+export function revealCronSecrets(id: string): Promise<{ api_key: string }> {
+  return request<{ api_key: string }>(`/api/v1/admin/cron-jobs/${id}/secrets`);
+}
+
+export function testSafeKeepConnection(id: string, req: TestSafeKeepReq): Promise<TestSafeKeepResp> {
+  return jsonRequest<TestSafeKeepResp>(`/api/v1/admin/cron-jobs/${id}/test-safekeep`, 'POST', req);
+}
+
+export function buildAuditSearchParams(query: AuditQuery, includePage = true): URLSearchParams {
+  const params = new URLSearchParams();
+  if (includePage) {
+    if (query.limit !== undefined) {
+      params.set('limit', String(query.limit));
+    }
+    if (query.offset !== undefined) {
+      params.set('offset', String(query.offset));
+    }
+  }
+  if (query.actor_type) {
+    params.set('actor_type', query.actor_type);
+  }
+  if (query.action) {
+    params.set('action', query.action);
+  }
+  if (query.status) {
+    params.set('status', query.status);
+  }
+  if (query.q) {
+    params.set('q', query.q);
+  }
+  if (query.from) {
+    params.set('from', query.from);
+  }
+  if (query.to) {
+    params.set('to', query.to);
+  }
+  return params;
+}
+
+export function listAuditLogs(query: AuditQuery): Promise<AuditListResp> {
+  const suffix = buildAuditSearchParams(query, true).toString();
+  return request<AuditListResp>(`/api/v1/admin/audit-logs${suffix ? `?${suffix}` : ''}`);
+}
+
+export function getAuditLogsExportUrl(format: 'csv' | 'json', query: AuditQuery): string {
+  const params = buildAuditSearchParams(query, false);
+  params.set('format', format);
+  return `/api/v1/admin/audit-logs/export?${params.toString()}`;
 }
 
 function parseDownloadFileName(header: string | null): string {

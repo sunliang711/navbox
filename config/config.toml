@@ -34,3 +34,7 @@ max_bytes = 1048576
 [icon_fetch]
 allowed_private_cidrs = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 skip_tls_verify = false
+
+[security]
+# 可选 32 字节主密钥（64 位十六进制或 Base64），用于加密保存 SafeKeep API Key 等敏感配置；留空时自动生成并持久化在数据库
+master_key = ""

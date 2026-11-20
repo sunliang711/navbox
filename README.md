@@ -12,6 +12,8 @@ Navbox 是一个自托管导航站。后端使用 Go + Gin + GORM + PostgreSQL�
 - 网站批量删除、批量添加 Tag、批量移除 Tag。
 - icon 上传，文件保存到 `./data/uploads/`。
 - 配置 zip 导入导出，包含 `navbox.json` 和 `icons/`。
+- 定时任务调度：支持在线配置 Cron 周期、预览未来触发时间、手动立即执行、查看执行历史，内置 **SafeKeep 全量数据定时备份**（默认每周一 04:00 导出全部数据并通过 SafeKeep API 上传备份，可自定义周期、路径、目标上游与同步/异步模式）、过期审计日志清理与任务记录清理。
+- 审计日志：记录管理员登录/改密、网站与 Tag 变更、导入导出、定时任务执行等操作轨迹，支持多条件筛选、查看 JSON 详情及 CSV / JSON 导出。
 
 ## 快速启动
 
@@ -118,6 +120,7 @@ docker compose build navbox
 | `NAVBOX_RESTORE_TOKEN` | 恢复模式使用的一次性 Token，启动后 5 分钟内有效 | `openssl rand -hex 32` |
 | `NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS` | 允许获取 icon 的内网 CIDR 白名单 | `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16` |
 | `NAVBOX_ICON_FETCH_SKIP_TLS_VERIFY` | 获取 icon 时是否跳过 HTTPS 证书校验，内网自签证书站点可临时开启 | `false` |
+| `NAVBOX_SECURITY_MASTER_KEY` | 可选 32 字节加密主密钥（64 位十六进制或 Base64），用于加密保存 SafeKeep API Key；留空时自动生成并持久化到数据库 | `openssl rand -hex 32` |
 
 运行时目录：
 

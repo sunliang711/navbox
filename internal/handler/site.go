@@ -13,11 +13,12 @@ import (
 )
 
 type SiteHandler struct {
-	service service.SiteService
+	service  service.SiteService
+	auditSvc service.AuditService
 }
 
-func NewSiteHandler(service service.SiteService) *SiteHandler {
-	return &SiteHandler{service: service}
+func NewSiteHandler(service service.SiteService, auditSvc service.AuditService) *SiteHandler {
+	return &SiteHandler{service: service, auditSvc: auditSvc}
 }
 
 func (h *SiteHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
@@ -59,6 +60,10 @@ func (h *SiteHandler) CreateSite(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "site.create", "site", site.ID, service.AuditStatusSuccess, map[string]any{
+		"title":       site.Title,
+		"default_url": site.DefaultURL,
+	})
 	response.OK(c, site)
 }
 
@@ -74,14 +79,20 @@ func (h *SiteHandler) UpdateSite(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "site.update", "site", site.ID, service.AuditStatusSuccess, map[string]any{
+		"title":       site.Title,
+		"default_url": site.DefaultURL,
+	})
 	response.OK(c, site)
 }
 
 func (h *SiteHandler) DeleteSite(c *gin.Context) {
-	if err := h.service.DeleteSite(c.Request.Context(), c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := h.service.DeleteSite(c.Request.Context(), id); err != nil {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "site.delete", "site", id, service.AuditStatusSuccess, nil)
 	response.OK(c, gin.H{"deleted": true})
 }
 
@@ -95,6 +106,10 @@ func (h *SiteHandler) BatchDeleteSites(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "site.batch_delete", "site", "", service.AuditStatusSuccess, map[string]any{
+		"count":    len(req.SiteIDs),
+		"site_ids": req.SiteIDs,
+	})
 	response.OK(c, gin.H{"deleted": true})
 }
 
@@ -108,6 +123,11 @@ func (h *SiteHandler) BatchUpdateSiteTags(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "site.batch_tags", "site", "", service.AuditStatusSuccess, map[string]any{
+		"action":     req.Action,
+		"site_count": len(req.SiteIDs),
+		"tag_count":  len(req.TagIDs),
+	})
 	response.OK(c, gin.H{"updated": true})
 }
 
@@ -121,6 +141,9 @@ func (h *SiteHandler) UpdateSiteOrder(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "site.reorder", "site", "", service.AuditStatusSuccess, map[string]any{
+		"count": len(req.Items),
+	})
 	response.OK(c, gin.H{"updated": true})
 }
 
@@ -147,6 +170,11 @@ func parseQueryIDs(c *gin.Context, name string) []string {
 }
 
 func writeServiceError(c *gin.Context, err error) {
+	var vErr *service.ValidationError
+	if errors.As(err, &vErr) {
+		response.Error(c, http.StatusBadRequest, response.CodeBadRequest, vErr.Message)
+		return
+	}
 	switch {
 	case errors.Is(err, service.ErrInvalidInput):
 		response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "参数错误")

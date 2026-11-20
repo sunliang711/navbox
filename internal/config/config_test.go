@@ -40,6 +40,17 @@ func TestConfigValidateRejectsInvalidRestoreMode(t *testing.T) {
 	require.ErrorContains(t, err, "restore mode")
 }
 
+func TestConfigValidateSecurityMasterKey(t *testing.T) {
+	cfg := testConfig()
+	cfg.Security = SecurityConfig{
+		MasterKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+	}
+	require.NoError(t, cfg.Validate())
+
+	cfg.Security.MasterKey = "invalid-key"
+	require.ErrorContains(t, cfg.Validate(), "master_key")
+}
+
 func testConfig() Config {
 	return Config{
 		App: AppConfig{

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+
+	"navbox/internal/crypto"
 )
 
 const RestoreModeAdminPassword = "admin-password"
@@ -21,6 +23,11 @@ type Config struct {
 	Restore   RestoreConfig   `mapstructure:"restore"`
 	Upload    UploadConfig    `mapstructure:"upload"`
 	IconFetch IconFetchConfig `mapstructure:"icon_fetch"`
+	Security  SecurityConfig  `mapstructure:"security"`
+}
+
+type SecurityConfig struct {
+	MasterKey string `mapstructure:"master_key"`
 }
 
 type AppConfig struct {
@@ -123,6 +130,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("upload.max_bytes", 1048576)
 	v.SetDefault("icon_fetch.allowed_private_cidrs", "")
 	v.SetDefault("icon_fetch.skip_tls_verify", false)
+	v.SetDefault("security.master_key", "")
 }
 
 func (c Config) Validate() error {
@@ -187,6 +195,11 @@ func (c Config) Validate() error {
 		}
 		if _, err := netip.ParsePrefix(item); err != nil {
 			return fmt.Errorf("invalid icon_fetch allowed_private_cidrs: %w", err)
+		}
+	}
+	if strings.TrimSpace(c.Security.MasterKey) != "" {
+		if _, err := crypto.DecodeMasterKey(c.Security.MasterKey); err != nil {
+			return fmt.Errorf("invalid security master_key: %w", err)
 		}
 	}
 	return nil

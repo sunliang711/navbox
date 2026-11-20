@@ -12,12 +12,13 @@ import (
 )
 
 type IconHandler struct {
-	cfg     config.Config
-	service service.IconService
+	cfg      config.Config
+	service  service.IconService
+	auditSvc service.AuditService
 }
 
-func NewIconHandler(cfg config.Config, service service.IconService) *IconHandler {
-	return &IconHandler{cfg: cfg, service: service}
+func NewIconHandler(cfg config.Config, service service.IconService, auditSvc service.AuditService) *IconHandler {
+	return &IconHandler{cfg: cfg, service: service, auditSvc: auditSvc}
 }
 
 func (h *IconHandler) RegisterAdminRoutes(rg *gin.RouterGroup) {
@@ -50,6 +51,11 @@ func (h *IconHandler) UploadIcon(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "icon.upload", "icon", icon.ID, service.AuditStatusSuccess, map[string]any{
+		"file_name":  icon.FileName,
+		"mime_type":  icon.MIMEType,
+		"size_bytes": icon.SizeBytes,
+	})
 	response.OK(c, icon)
 }
 
@@ -62,8 +68,15 @@ func (h *IconHandler) FetchIcon(c *gin.Context) {
 
 	icon, err := h.service.FetchIcon(c.Request.Context(), req.URL)
 	if err != nil {
+		recordAdminAudit(c, h.auditSvc, "icon.fetch", "icon", "", service.AuditStatusFailure, map[string]any{
+			"url": req.URL,
+		})
 		writeServiceError(c, err)
 		return
 	}
+	recordAdminAudit(c, h.auditSvc, "icon.fetch", "icon", icon.ID, service.AuditStatusSuccess, map[string]any{
+		"url":       req.URL,
+		"file_name": icon.FileName,
+	})
 	response.OK(c, icon)
 }

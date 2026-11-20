@@ -130,3 +130,93 @@ export type ExportFile = {
   blob: Blob;
   fileName: string;
 };
+
+export type CronJob = {
+  id: string;
+  job_key: string;
+  name: string;
+  description: string;
+  cron_expr: string;
+  default_schedule: string;
+  enabled: boolean;
+  timeout_sec: number;
+  config_json: string;
+  last_run_at?: string;
+  last_status: string;
+  last_duration_ms: number;
+  last_summary?: string;
+  next_run_at?: string;
+  next_runs: string[];
+  updated_at: string;
+};
+
+export type CronJobRun = {
+  id: string;
+  job_id: string;
+  trigger_type: 'schedule' | 'manual' | string;
+  triggered_by: string;
+  status: 'running' | 'succeeded' | 'failed' | 'skipped' | 'timeout' | string;
+  affected_rows: number;
+  output_log: string;
+  started_at: string;
+  finished_at?: string;
+};
+
+export type UpdateCronJobReq = {
+  cron_expr: string;
+  enabled: boolean;
+  timeout_sec?: number;
+  config?: Record<string, unknown>;
+};
+
+export type SafeKeepUpstream = {
+  upstream_id: string;
+  upstream_name: string;
+  upstream_type: string;
+  enabled: boolean;
+  is_default: boolean;
+  priority: number;
+};
+
+export type TestSafeKeepReq = {
+  api_base_url?: string;
+  api_key?: string;
+  skip_tls_verify?: boolean;
+};
+
+export type TestSafeKeepResp = {
+  ok: boolean;
+  upstreams: SafeKeepUpstream[];
+};
+
+export type AuditLog = {
+  id: number;
+  actor_type: string;
+  actor_id: string;
+  actor_name: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  status: string;
+  ip_address: string;
+  user_agent: string;
+  request_id: string;
+  detail_json: string;
+  created_at: string;
+};
+
+export type AuditListResp = {
+  items: AuditLog[];
+  total: number;
+};
+
+export type AuditQuery = {
+  actor_type?: string;
+  action?: string;
+  status?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+};
