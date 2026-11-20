@@ -1,6 +1,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
   Check,
   CircleDashed,
   Clock,
@@ -57,6 +58,7 @@ import { AuditPanel } from './AuditPanel';
 import { fetchAndUploadBrowserIcon } from './browserIcon';
 import { CronPanel } from './CronPanel';
 import { PreferenceControls, usePreferences } from './preferences';
+import { SiteSortPanel } from './SiteSortPanel';
 import { VersionBadge } from './version';
 import type { IconResp, ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
 
@@ -125,6 +127,10 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const [tagOrder, setTagOrder] = useState<Record<string, number>>({});
   const [draggingSiteId, setDraggingSiteId] = useState('');
   const [draggingTagId, setDraggingTagId] = useState('');
+  const [siteDropTarget, setSiteDropTarget] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
+  const [tagDropTarget, setTagDropTarget] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
+  const [siteSortMode, setSiteSortMode] = useState(false);
+  const [savingSiteOrder, setSavingSiteOrder] = useState(false);
   const [siteSelectionMode, setSiteSelectionMode] = useState(false);
   const [mobileSiteSortMode, setMobileSiteSortMode] = useState(false);
   const [mobileTagSortMode, setMobileTagSortMode] = useState(false);
@@ -198,6 +204,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     setMobileTagActionsOpen(false);
     setMobileSiteSortMode(false);
     setMobileTagSortMode(false);
+    setSiteSortMode(false);
   }, [tab]);
 
   const selectedSiteSet = useMemo(() => new Set(selectedSiteIds), [selectedSiteIds]);
@@ -205,6 +212,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const exportSiteSet = useMemo(() => new Set(exportSiteIds), [exportSiteIds]);
   const exportTagSet = useMemo(() => new Set(exportTagIds), [exportTagIds]);
   const normalizedAdminSearch = adminSearch.trim().toLocaleLowerCase();
+  const isSiteFiltered = Boolean(normalizedAdminSearch || siteTagFilterId !== 'all' || siteFavoriteFilter === 'favorites');
   const filteredSites = useMemo(() => {
     return sites.filter((site) => {
       if (siteTagFilterId !== 'all' && !site.tags.some((tag) => tag.id === siteTagFilterId)) {
@@ -506,25 +514,62 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   }
 
   async function saveSiteOrder() {
+    const previousSites = sites;
+    const previousOrder = siteOrder;
+    const nextSites = [...sites]
+      .map((site) => ({ ...site, sort_order: Number(siteOrder[site.id] ?? site.sort_order) }))
+      .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+    setSites(nextSites);
     try {
       await updateSiteOrder(toOrderItems(siteOrder));
       setNotice(t('siteOrderSaved'));
-      await refreshData();
     } catch (error) {
+      setSites(previousSites);
+      setSiteOrder(previousOrder);
       if (!handleAdminError(error)) {
-        throw error;
+        setNotice(t('siteOrderUpdateFailed'));
       }
     }
   }
 
+  async function saveSitesFromSortPanel(orderedFullSites: Site[]) {
+    const previousSites = sites;
+    const previousOrder = siteOrder;
+    const nextOrder = buildSequentialOrder(orderedFullSites);
+    const nextSites = orderedFullSites.map((site) => ({ ...site, sort_order: nextOrder[site.id] }));
+
+    setSavingSiteOrder(true);
+    setSites(nextSites);
+    setSiteOrder(nextOrder);
+    try {
+      await updateSiteOrder(toOrderItems(nextOrder));
+      setNotice(t('siteOrderSaved'));
+    } catch (error) {
+      setSites(previousSites);
+      setSiteOrder(previousOrder);
+      if (!handleAdminError(error)) {
+        setNotice(t('siteOrderUpdateFailed'));
+      }
+    } finally {
+      setSavingSiteOrder(false);
+    }
+  }
+
   async function saveTagOrder() {
+    const previousTags = tags;
+    const previousOrder = tagOrder;
+    const nextTags = [...tags]
+      .map((tag) => ({ ...tag, sort_order: Number(tagOrder[tag.id] ?? tag.sort_order) }))
+      .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+    setTags(nextTags);
     try {
       await updateTagOrder(toOrderItems(tagOrder));
       setNotice(t('tagOrderSaved'));
-      await refreshData();
     } catch (error) {
+      setTags(previousTags);
+      setTagOrder(previousOrder);
       if (!handleAdminError(error)) {
-        throw error;
+        setNotice(t('tagOrderUpdateFailed'));
       }
     }
   }
@@ -533,39 +578,75 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', siteId);
     setDraggingSiteId(siteId);
+    setSiteDropTarget(null);
   }
 
   function startTagDrag(event: DragEvent<HTMLElement>, tagId: string) {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', tagId);
     setDraggingTagId(tagId);
+    setTagDropTarget(null);
   }
 
-  function allowSortDrop(event: DragEvent<HTMLTableRowElement>) {
+  function handleSiteDragOver(event: DragEvent<HTMLTableRowElement>, targetId: string) {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
+    if (!draggingSiteId || draggingSiteId === targetId) {
+      setSiteDropTarget(null);
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position: 'before' | 'after' = event.clientY - rect.top > rect.height / 2 ? 'after' : 'before';
+    setSiteDropTarget((current) =>
+      current?.id === targetId && current.position === position ? current : { id: targetId, position }
+    );
+  }
+
+  function handleTagDragOver(event: DragEvent<HTMLTableRowElement>, targetId: string) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (!draggingTagId || draggingTagId === targetId) {
+      setTagDropTarget(null);
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position: 'before' | 'after' = event.clientY - rect.top > rect.height / 2 ? 'after' : 'before';
+    setTagDropTarget((current) =>
+      current?.id === targetId && current.position === position ? current : { id: targetId, position }
+    );
   }
 
   async function dropSite(event: DragEvent<HTMLTableRowElement>, targetId: string) {
     event.preventDefault();
     const sourceId = draggingSiteId || event.dataTransfer.getData('text/plain');
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position: 'before' | 'after' =
+      siteDropTarget?.id === targetId
+        ? siteDropTarget.position
+        : event.clientY - rect.top > rect.height / 2
+          ? 'after'
+          : 'before';
     setDraggingSiteId('');
+    setSiteDropTarget(null);
     if (!sourceId || sourceId === targetId) {
       return;
     }
 
-    const nextSites = moveItemById(sites, sourceId, targetId);
-    const nextOrder = buildSequentialOrder(nextSites);
+    const previousSites = sites;
+    const previousOrder = siteOrder;
+    const nextSitesRaw = moveItemRelative(sites, sourceId, targetId, position);
+    const nextOrder = buildSequentialOrder(nextSitesRaw);
+    const nextSites = nextSitesRaw.map((site) => ({ ...site, sort_order: nextOrder[site.id] }));
     setSites(nextSites);
     setSiteOrder(nextOrder);
     try {
       await updateSiteOrder(toOrderItems(nextOrder));
       setNotice(t('siteOrderUpdated'));
-      await refreshData();
     } catch (error) {
+      setSites(previousSites);
+      setSiteOrder(previousOrder);
       if (!handleAdminError(error)) {
         setNotice(t('siteOrderUpdateFailed'));
-        await refreshData();
       }
     }
   }
@@ -573,23 +654,34 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   async function dropTag(event: DragEvent<HTMLTableRowElement>, targetId: string) {
     event.preventDefault();
     const sourceId = draggingTagId || event.dataTransfer.getData('text/plain');
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position: 'before' | 'after' =
+      tagDropTarget?.id === targetId
+        ? tagDropTarget.position
+        : event.clientY - rect.top > rect.height / 2
+          ? 'after'
+          : 'before';
     setDraggingTagId('');
+    setTagDropTarget(null);
     if (!sourceId || sourceId === targetId) {
       return;
     }
 
-    const nextTags = moveItemById(tags, sourceId, targetId);
-    const nextOrder = buildSequentialOrder(nextTags);
+    const previousTags = tags;
+    const previousOrder = tagOrder;
+    const nextTagsRaw = moveItemRelative(tags, sourceId, targetId, position);
+    const nextOrder = buildSequentialOrder(nextTagsRaw);
+    const nextTags = nextTagsRaw.map((tag) => ({ ...tag, sort_order: nextOrder[tag.id] }));
     setTags(nextTags);
     setTagOrder(nextOrder);
     try {
       await updateTagOrder(toOrderItems(nextOrder));
       setNotice(t('tagOrderUpdated'));
-      await refreshData();
     } catch (error) {
+      setTags(previousTags);
+      setTagOrder(previousOrder);
       if (!handleAdminError(error)) {
         setNotice(t('tagOrderUpdateFailed'));
-        await refreshData();
       }
     }
   }
@@ -751,18 +843,21 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       return;
     }
 
-    const nextSites = swapItemsById(sites, siteId, target.id);
-    const nextOrder = buildSequentialOrder(nextSites);
+    const previousSites = sites;
+    const previousOrder = siteOrder;
+    const nextSitesRaw = swapItemsById(sites, siteId, target.id);
+    const nextOrder = buildSequentialOrder(nextSitesRaw);
+    const nextSites = nextSitesRaw.map((site) => ({ ...site, sort_order: nextOrder[site.id] }));
     setSites(nextSites);
     setSiteOrder(nextOrder);
     try {
       await updateSiteOrder(toOrderItems(nextOrder));
       setNotice(t('siteOrderUpdated'));
-      await refreshData();
     } catch (error) {
+      setSites(previousSites);
+      setSiteOrder(previousOrder);
       if (!handleAdminError(error)) {
         setNotice(t('siteOrderUpdateFailed'));
-        await refreshData();
       }
     }
   }
@@ -774,18 +869,21 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       return;
     }
 
-    const nextTags = swapItemsById(tags, tagId, target.id);
-    const nextOrder = buildSequentialOrder(nextTags);
+    const previousTags = tags;
+    const previousOrder = tagOrder;
+    const nextTagsRaw = swapItemsById(tags, tagId, target.id);
+    const nextOrder = buildSequentialOrder(nextTagsRaw);
+    const nextTags = nextTagsRaw.map((tag) => ({ ...tag, sort_order: nextOrder[tag.id] }));
     setTags(nextTags);
     setTagOrder(nextOrder);
     try {
       await updateTagOrder(toOrderItems(nextOrder));
       setNotice(t('tagOrderUpdated'));
-      await refreshData();
     } catch (error) {
+      setTags(previousTags);
+      setTagOrder(previousOrder);
       if (!handleAdminError(error)) {
         setNotice(t('tagOrderUpdateFailed'));
-        await refreshData();
       }
     }
   }
@@ -968,26 +1066,39 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
 
       {!loading && tab === 'sites' && (
         <section className="admin-section">
-          <div className="admin-actions">
-            <button className="primary-button" type="button" onClick={openNewSite}>
-              <Plus size={17} aria-hidden="true" />
-              {t('newSite')}
-            </button>
-            <button className="desktop-only" type="button" onClick={saveSiteOrder}>
-              <Save size={17} aria-hidden="true" />
-              {t('saveOrder')}
-            </button>
-            <button className="mobile-only mobile-more-action" type="button" onClick={() => setMobileSiteActionsOpen(true)}>
-              <MoreHorizontal size={17} aria-hidden="true" />
-              {t('more')}
-            </button>
-            <button className="desktop-only" type="button" onClick={handleBatchDelete} disabled={selectedSiteIds.length === 0}>
-              <Trash2 size={17} aria-hidden="true" />
-              {t('batchDelete')}
-            </button>
-          </div>
+          {!siteSortMode && (
+            <div className="admin-actions">
+              <button className="primary-button" type="button" onClick={openNewSite}>
+                <Plus size={17} aria-hidden="true" />
+                {t('newSite')}
+              </button>
+              <button type="button" onClick={() => setSiteSortMode(true)} disabled={sites.length < 2}>
+                <ArrowUpDown size={17} aria-hidden="true" />
+                {t('sortSitesBtn')}
+              </button>
+              <button className="desktop-only" type="button" onClick={saveSiteOrder}>
+                <Save size={17} aria-hidden="true" />
+                {t('saveOrder')}
+              </button>
+              <button className="mobile-only mobile-more-action" type="button" onClick={() => setMobileSiteActionsOpen(true)}>
+                <MoreHorizontal size={17} aria-hidden="true" />
+                {t('more')}
+              </button>
+              <button className="desktop-only" type="button" onClick={handleBatchDelete} disabled={selectedSiteIds.length === 0}>
+                <Trash2 size={17} aria-hidden="true" />
+                {t('batchDelete')}
+              </button>
+            </div>
+          )}
 
           <MobileActionMenu open={mobileSiteActionsOpen} title={t('siteActions')} onClose={() => setMobileSiteActionsOpen(false)}>
+            <button type="button" onClick={() => {
+              setMobileSiteActionsOpen(false);
+              setSiteSortMode(true);
+            }} disabled={sites.length < 2}>
+              <ArrowUpDown size={17} aria-hidden="true" />
+              {t('sortSitesBtn')}
+            </button>
             <button type="button" onClick={() => {
               setMobileSiteActionsOpen(false);
               saveSiteOrder();
@@ -1022,149 +1133,170 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
             mode="sites"
           />
 
-          <BatchTagBar
-            tags={tags}
-            selected={batchTagSet}
-            selectedSiteCount={selectedSiteIds.length}
-            onToggle={(id) => toggleString(batchTagIds, id, setBatchTagIds)}
-            onAdd={() => handleBatchTags('add')}
-            onRemove={() => handleBatchTags('remove')}
-          />
-
-          {filteredSites.length === 0 ? (
-            <AdminState text={t('noSites')} />
+          {siteSortMode ? (
+            <SiteSortPanel
+              sites={sites}
+              filteredSites={filteredSites}
+              isFiltered={isSiteFiltered}
+              saving={savingSiteOrder}
+              onSave={saveSitesFromSortPanel}
+              onClose={() => setSiteSortMode(false)}
+            />
           ) : (
             <>
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>{t('drag')}</th>
-                  <th>{t('select')}</th>
-                  <th>{t('site')}</th>
-                  <th>Tag</th>
-                  <th>{t('openMethod')}</th>
-                  <th>{t('favoriteColumn')}</th>
-                  <th>{t('sort')}</th>
-                  <th>{t('actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSites.map((site) => (
-                  <tr
-                    className={[
-                      draggingSiteId === site.id ? 'dragging-row' : '',
-                      selectedSiteSet.has(site.id) ? 'selected-row' : ''
-                    ].filter(Boolean).join(' ') || undefined}
-                    key={site.id}
-                    onDragOver={allowSortDrop}
-                    onDrop={(event) => dropSite(event, site.id)}
-                  >
-                    <td className="drag-cell" data-label={t('drag')}>
-                      <span
-                        className="drag-handle"
-                        draggable
-                        onDragStart={(event) => startSiteDrag(event, site.id)}
-                        onDragEnd={() => setDraggingSiteId('')}
-                        role="button"
-                        tabIndex={0}
-                        title={t('dragSort')}
-                        aria-label={`${t('dragSort')} ${site.title}`}
-                      >
-                        <GripVertical size={16} aria-hidden="true" />
-                      </span>
-                    </td>
-                    <td className="select-cell" data-label={t('select')}>
-                      <input
-                        type="checkbox"
-                        checked={selectedSiteSet.has(site.id)}
-                        onChange={() => toggleSiteSelection(site.id)}
-                        aria-label={t('selectSite', { title: site.title })}
-                      />
-                    </td>
-                    <td className="site-cell" data-label={t('site')}>
-                      <strong>{site.title}</strong>
-                      <span>{site.default_url}</span>
-                    </td>
-                    <td className="tag-cell" data-label="Tag">
-                      <div className="table-tags">
-                        {site.tags.length > 0 ? (
-                          site.tags.map((tag) => (
-                            <span className="table-tag" key={tag.id}>{tag.name}</span>
-                          ))
-                        ) : (
-                          <span className="table-tag muted">{t('uncategorized')}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="open-cell" data-label={t('openMethod')}>
-                      <span className="status-pill">{site.open_method === 'current_window' ? t('currentTab') : t('newTab')}</span>
-                    </td>
-                    <td className="favorite-cell" data-label={t('favoriteColumn')}>
-                      <span className={site.is_favorite ? 'status-pill favorite-pill active' : 'status-pill favorite-pill'}>
-                        {site.is_favorite ? t('yes') : t('no')}
-                      </span>
-                    </td>
-                    <td className="sort-cell" data-label={t('sort')}>
-                      <input
-                        className="order-input"
-                        type="number"
-                        value={siteOrder[site.id] ?? site.sort_order}
-                        onChange={(event) => setSiteOrder({ ...siteOrder, [site.id]: Number(event.target.value) })}
-                      />
-                    </td>
-                    <td className="actions-cell" data-label={t('actions')}>
-                      <div className="row-actions">
-                        <button type="button" onClick={() => openEditSite(site)} title={t('editSite')}>
-                          <Pencil size={16} aria-hidden="true" />
-                        </button>
-                        <button className="row-danger" type="button" onClick={() => removeSite(site)} title={t('deleteSite')}>
-                          <Trash2 size={16} aria-hidden="true" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="admin-mobile-list">
-            {filteredSites.map((site, index) => (
-              <MobileSiteCard
-                key={site.id}
-                site={site}
-                selected={selectedSiteSet.has(site.id)}
-                selectionMode={siteSelectionMode}
-                sortMode={mobileSiteSortMode}
-                canMoveUp={index > 0}
-                canMoveDown={index < filteredSites.length - 1}
-                onToggleSelection={() => toggleSiteSelection(site.id)}
-                onEdit={() => openEditSite(site)}
-                onDelete={() => removeSite(site)}
-                onMoveUp={() => moveSiteByStep(site.id, -1)}
-                onMoveDown={() => moveSiteByStep(site.id, 1)}
+              <BatchTagBar
+                tags={tags}
+                selected={batchTagSet}
+                selectedSiteCount={selectedSiteIds.length}
+                onToggle={(id) => toggleString(batchTagIds, id, setBatchTagIds)}
+                onAdd={() => handleBatchTags('add')}
+                onRemove={() => handleBatchTags('remove')}
               />
-            ))}
-          </div>
+
+              {filteredSites.length === 0 ? (
+                <AdminState text={t('noSites')} />
+              ) : (
+                <>
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>{t('drag')}</th>
+                          <th>{t('select')}</th>
+                          <th>{t('site')}</th>
+                          <th>Tag</th>
+                          <th>{t('openMethod')}</th>
+                          <th>{t('favoriteColumn')}</th>
+                          <th>{t('sort')}</th>
+                          <th>{t('actions')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredSites.map((site) => (
+                          <tr
+                            className={[
+                              draggingSiteId === site.id ? 'dragging-row' : '',
+                              selectedSiteSet.has(site.id) ? 'selected-row' : '',
+                              siteDropTarget?.id === site.id
+                                ? siteDropTarget.position === 'before'
+                                  ? 'drop-before'
+                                  : 'drop-after'
+                                : ''
+                            ].filter(Boolean).join(' ') || undefined}
+                            key={site.id}
+                            onDragOver={(event) => handleSiteDragOver(event, site.id)}
+                            onDrop={(event) => dropSite(event, site.id)}
+                          >
+                            <td className="drag-cell" data-label={t('drag')}>
+                              <span
+                                className="drag-handle"
+                                draggable
+                                onDragStart={(event) => startSiteDrag(event, site.id)}
+                                onDragEnd={() => {
+                                  setDraggingSiteId('');
+                                  setSiteDropTarget(null);
+                                }}
+                                role="button"
+                                tabIndex={0}
+                                title={t('dragSort')}
+                                aria-label={`${t('dragSort')} ${site.title}`}
+                              >
+                                <GripVertical size={16} aria-hidden="true" />
+                              </span>
+                            </td>
+                            <td className="select-cell" data-label={t('select')}>
+                              <input
+                                type="checkbox"
+                                checked={selectedSiteSet.has(site.id)}
+                                onChange={() => toggleSiteSelection(site.id)}
+                                aria-label={t('selectSite', { title: site.title })}
+                              />
+                            </td>
+                            <td className="site-cell" data-label={t('site')}>
+                              <strong>{site.title}</strong>
+                              <span>{site.default_url}</span>
+                            </td>
+                            <td className="tag-cell" data-label="Tag">
+                              <div className="table-tags">
+                                {site.tags.length > 0 ? (
+                                  site.tags.map((tag) => (
+                                    <span className="table-tag" key={tag.id}>{tag.name}</span>
+                                  ))
+                                ) : (
+                                  <span className="table-tag muted">{t('uncategorized')}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="open-cell" data-label={t('openMethod')}>
+                              <span className="status-pill">{site.open_method === 'current_window' ? t('currentTab') : t('newTab')}</span>
+                            </td>
+                            <td className="favorite-cell" data-label={t('favoriteColumn')}>
+                              <span className={site.is_favorite ? 'status-pill favorite-pill active' : 'status-pill favorite-pill'}>
+                                {site.is_favorite ? t('yes') : t('no')}
+                              </span>
+                            </td>
+                            <td className="sort-cell" data-label={t('sort')}>
+                              <input
+                                className="order-input"
+                                type="number"
+                                value={siteOrder[site.id] ?? site.sort_order}
+                                onChange={(event) => setSiteOrder({ ...siteOrder, [site.id]: Number(event.target.value) })}
+                              />
+                            </td>
+                            <td className="actions-cell" data-label={t('actions')}>
+                              <div className="row-actions">
+                                <button type="button" onClick={() => openEditSite(site)} title={t('editSite')}>
+                                  <Pencil size={16} aria-hidden="true" />
+                                </button>
+                                <button className="row-danger" type="button" onClick={() => removeSite(site)} title={t('deleteSite')}>
+                                  <Trash2 size={16} aria-hidden="true" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="admin-mobile-list">
+                    {filteredSites.map((site, index) => (
+                      <MobileSiteCard
+                        key={site.id}
+                        site={site}
+                        selected={selectedSiteSet.has(site.id)}
+                        selectionMode={siteSelectionMode}
+                        sortMode={mobileSiteSortMode}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < filteredSites.length - 1}
+                        onToggleSelection={() => toggleSiteSelection(site.id)}
+                        onEdit={() => openEditSite(site)}
+                        onDelete={() => removeSite(site)}
+                        onMoveUp={() => moveSiteByStep(site.id, -1)}
+                        onMoveDown={() => moveSiteByStep(site.id, 1)}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+              <MobileBatchDock
+                tags={tags}
+                selectedTagCount={batchTagIds.length}
+                selectedSiteCount={selectedSiteIds.length}
+                onOpenTags={() => setMobileBatchTagsOpen(true)}
+                onAdd={() => handleBatchTags('add')}
+                onRemove={() => handleBatchTags('remove')}
+                onDelete={handleBatchDelete}
+                onClear={clearSiteSelection}
+              />
+              <MobileTagSheet
+                open={mobileBatchTagsOpen}
+                tags={tags}
+                selected={batchTagSet}
+                onToggle={(id) => toggleString(batchTagIds, id, setBatchTagIds)}
+                onClose={() => setMobileBatchTagsOpen(false)}
+              />
             </>
           )}
-          <MobileBatchDock
-            tags={tags}
-            selectedTagCount={batchTagIds.length}
-            selectedSiteCount={selectedSiteIds.length}
-            onOpenTags={() => setMobileBatchTagsOpen(true)}
-            onAdd={() => handleBatchTags('add')}
-            onRemove={() => handleBatchTags('remove')}
-            onDelete={handleBatchDelete}
-            onClear={clearSiteSelection}
-          />
-          <MobileTagSheet
-            open={mobileBatchTagsOpen}
-            tags={tags}
-            selected={batchTagSet}
-            onToggle={(id) => toggleString(batchTagIds, id, setBatchTagIds)}
-            onClose={() => setMobileBatchTagsOpen(false)}
-          />
         </section>
       )}
 
@@ -1229,9 +1361,16 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
               <tbody>
                 {filteredTags.map((tag) => (
                   <tr
-                    className={draggingTagId === tag.id ? 'dragging-row' : undefined}
+                    className={[
+                      draggingTagId === tag.id ? 'dragging-row' : '',
+                      tagDropTarget?.id === tag.id
+                        ? tagDropTarget.position === 'before'
+                          ? 'drop-before'
+                          : 'drop-after'
+                        : ''
+                    ].filter(Boolean).join(' ') || undefined}
                     key={tag.id}
-                    onDragOver={allowSortDrop}
+                    onDragOver={(event) => handleTagDragOver(event, tag.id)}
                     onDrop={(event) => dropTag(event, tag.id)}
                   >
                     <td className="drag-cell" data-label={t('drag')}>
@@ -1239,7 +1378,10 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
                         className="drag-handle"
                         draggable
                         onDragStart={(event) => startTagDrag(event, tag.id)}
-                        onDragEnd={() => setDraggingTagId('')}
+                        onDragEnd={() => {
+                          setDraggingTagId('');
+                          setTagDropTarget(null);
+                        }}
                         role="button"
                         tabIndex={0}
                         title={t('dragSort')}
@@ -2255,16 +2397,22 @@ function swapItemsById<T extends { id: string }>(items: T[], sourceId: string, t
   return next;
 }
 
-function moveItemById<T extends { id: string }>(items: T[], sourceId: string, targetId: string): T[] {
+function moveItemRelative<T extends { id: string }>(
+  items: T[],
+  sourceId: string,
+  targetId: string,
+  position: 'before' | 'after'
+): T[] {
   const sourceIndex = items.findIndex((item) => item.id === sourceId);
   const targetIndex = items.findIndex((item) => item.id === targetId);
-  if (sourceIndex < 0 || targetIndex < 0) {
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
     return items;
   }
 
   const next = [...items];
   const [source] = next.splice(sourceIndex, 1);
-  const insertIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+  const adjustedTarget = next.findIndex((item) => item.id === targetId);
+  const insertIndex = position === 'after' ? adjustedTarget + 1 : adjustedTarget;
   next.splice(insertIndex, 0, source);
   return next;
 }

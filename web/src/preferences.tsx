@@ -342,7 +342,21 @@ const zh = {
   auditLoadFailed: '加载审计日志失败：{{error}}',
   auditPageSummary: '第 {{page}} 页 · 共 {{total}} 条',
   auditPrevPage: '上一页',
-  auditNextPage: '下一页'
+  auditNextPage: '下一页',
+  sortSitesBtn: '调整顺序',
+  sortWorkspaceTitle: '调整网站顺序',
+  sortWorkspaceHint: '拖拽卡片或行实时重排，也可置顶、置底或点击序号直达目标位置',
+  sortChangedCount: '已调整 {{count}} 项',
+  sortUnchanged: '未修改',
+  sortViewList: '紧凑列表',
+  sortViewGrid: '首页卡片',
+  sortReset: '恢复原顺序',
+  sortExit: '退出排序',
+  sortMoveTop: '置顶',
+  sortMoveBottom: '置底',
+  sortJumpRankTitle: '点击输入目标位次（1 - {{max}}）',
+  sortFilteredNotice: '当前处于筛选视图：仅调整当前可见 {{count}} 个网站之间的相对顺序，不影响未筛选网站的位置。',
+  sortUnsavedConfirm: '当前排序尚未保存，确定放弃修改并退出排序模式吗？'
 } as const;
 
 export type TranslationKey = keyof typeof zh;
@@ -682,7 +696,21 @@ const en: Record<TranslationKey, string> = {
   auditLoadFailed: 'Failed to load audit logs: {{error}}',
   auditPageSummary: 'Page {{page}} · {{total}} total',
   auditPrevPage: 'Previous',
-  auditNextPage: 'Next'
+  auditNextPage: 'Next',
+  sortSitesBtn: 'Reorder',
+  sortWorkspaceTitle: 'Reorder Sites',
+  sortWorkspaceHint: 'Drag rows or cards to reorder smoothly, or use top/bottom controls and rank jump',
+  sortChangedCount: '{{count}} moved',
+  sortUnchanged: 'No changes',
+  sortViewList: 'Compact List',
+  sortViewGrid: 'Home Grid',
+  sortReset: 'Reset',
+  sortExit: 'Exit',
+  sortMoveTop: 'Move to top',
+  sortMoveBottom: 'Move to bottom',
+  sortJumpRankTitle: 'Click to jump to position (1 - {{max}})',
+  sortFilteredNotice: 'Filtered view active: reordering only adjusts relative order among these {{count}} visible sites.',
+  sortUnsavedConfirm: 'You have unsaved order changes. Discard them and exit?'
 };
 
 type PreferencesContextValue = {
