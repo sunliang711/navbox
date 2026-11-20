@@ -88,11 +88,19 @@ func (h *SiteHandler) UpdateSite(c *gin.Context) {
 
 func (h *SiteHandler) DeleteSite(c *gin.Context) {
 	id := c.Param("id")
+	site, _ := h.service.GetSite(c.Request.Context(), id)
 	if err := h.service.DeleteSite(c.Request.Context(), id); err != nil {
 		writeServiceError(c, err)
 		return
 	}
-	recordAdminAudit(c, h.auditSvc, "site.delete", "site", id, service.AuditStatusSuccess, nil)
+	var detail map[string]any
+	if site != nil {
+		detail = map[string]any{
+			"title":       site.Title,
+			"default_url": site.DefaultURL,
+		}
+	}
+	recordAdminAudit(c, h.auditSvc, "site.delete", "site", id, service.AuditStatusSuccess, detail)
 	response.OK(c, gin.H{"deleted": true})
 }
 

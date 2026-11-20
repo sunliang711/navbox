@@ -114,8 +114,8 @@ func applyAuditFilter(query *gorm.DB, filter AuditFilter) *gorm.DB {
 	if v := strings.TrimSpace(filter.Query); v != "" {
 		pattern := "%" + v + "%"
 		query = query.Where(
-			"actor_name ILIKE ? OR resource_type ILIKE ? OR resource_id ILIKE ? OR detail_json ILIKE ? OR ip_address ILIKE ?",
-			pattern, pattern, pattern, pattern, pattern,
+			"(actor_name ILIKE ? OR action ILIKE ? OR resource_type ILIKE ? OR resource_id ILIKE ? OR detail_json ILIKE ? OR ip_address ILIKE ?)",
+			pattern, pattern, pattern, pattern, pattern, pattern,
 		)
 	}
 	if filter.From != nil {

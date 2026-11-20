@@ -101,3 +101,17 @@ func TestIconRepoCount(t *testing.T) {
 	require.Equal(t, int64(4), count)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestApplyAuditFilterParentheses(t *testing.T) {
+	db, _ := newMockDB(t)
+	var logs []model.AuditLog
+	query := db.Session(&gorm.Session{DryRun: true}).Model(&model.AuditLog{})
+	stmt := applyAuditFilter(query, AuditFilter{
+		ActorType: "admin",
+		Query:     "github",
+	}).Find(&logs).Statement
+	sql := stmt.SQL.String()
+	require.Contains(t, sql, "actor_type = $1")
+	require.Contains(t, sql, "action ILIKE")
+	require.Contains(t, sql, "(actor_name ILIKE")
+}

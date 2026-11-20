@@ -14,6 +14,7 @@ import (
 
 type TagService interface {
 	ListTags(ctx context.Context) ([]dto.TagResp, error)
+	GetTag(ctx context.Context, id string) (*dto.TagResp, error)
 	GetPublicConfig(ctx context.Context) (dto.PublicConfigResp, error)
 	CreateTag(ctx context.Context, req dto.TagSaveReq) (*dto.TagResp, error)
 	UpdateTag(ctx context.Context, id string, req dto.TagSaveReq) (*dto.TagResp, error)
@@ -36,6 +37,13 @@ func (s *tagService) ListTags(ctx context.Context) ([]dto.TagResp, error) {
 		return nil, err
 	}
 	return mapTagWithSiteCountList(tags), nil
+}
+
+func (s *tagService) GetTag(ctx context.Context, id string) (*dto.TagResp, error) {
+	if _, err := parseUUID(id); err != nil {
+		return nil, err
+	}
+	return s.getTagResp(ctx, id)
 }
 
 func (s *tagService) GetPublicConfig(ctx context.Context) (dto.PublicConfigResp, error) {

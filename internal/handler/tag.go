@@ -86,11 +86,16 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 
 func (h *TagHandler) DeleteTag(c *gin.Context) {
 	id := c.Param("id")
+	tag, _ := h.service.GetTag(c.Request.Context(), id)
 	if err := h.service.DeleteTag(c.Request.Context(), id); err != nil {
 		writeServiceError(c, err)
 		return
 	}
-	recordAdminAudit(c, h.auditSvc, "tag.delete", "tag", id, service.AuditStatusSuccess, nil)
+	var detail map[string]any
+	if tag != nil {
+		detail = map[string]any{"name": tag.Name}
+	}
+	recordAdminAudit(c, h.auditSvc, "tag.delete", "tag", id, service.AuditStatusSuccess, detail)
 	response.OK(c, gin.H{"deleted": true})
 }
 
@@ -100,7 +105,12 @@ func (h *TagHandler) SetDefaultTag(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
-	recordAdminAudit(c, h.auditSvc, "tag.set_default", "tag", id, service.AuditStatusSuccess, nil)
+	tag, _ := h.service.GetTag(c.Request.Context(), id)
+	var detail map[string]any
+	if tag != nil {
+		detail = map[string]any{"name": tag.Name}
+	}
+	recordAdminAudit(c, h.auditSvc, "tag.set_default", "tag", id, service.AuditStatusSuccess, detail)
 	response.OK(c, gin.H{"updated": true})
 }
 

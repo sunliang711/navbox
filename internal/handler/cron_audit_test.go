@@ -231,4 +231,10 @@ func TestCronHandlerRoutesAndAuditRecording(t *testing.T) {
 	require.Equal(t, "cron.update", auditSvc.recorded[0].Action)
 	require.Equal(t, "cron.reveal_secrets", auditSvc.recorded[1].Action)
 	require.Equal(t, "cron.test_safekeep", auditSvc.recorded[2].Action)
+	revealDetail, ok := auditSvc.recorded[1].Detail.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, service.JobKeySafeKeepBackup, revealDetail["job_key"])
+	testDetail, ok := auditSvc.recorded[2].Detail.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, service.JobKeySafeKeepBackup, testDetail["job_key"])
 }

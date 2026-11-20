@@ -130,7 +130,8 @@ func (h *CronHandler) RevealSecrets(c *gin.Context) {
 		return
 	}
 	recordAdminAudit(c, h.auditSvc, "cron.reveal_secrets", "cron_job", id, service.AuditStatusSuccess, map[string]any{
-		"job_id": id,
+		"job_id":  id,
+		"job_key": service.JobKeySafeKeepBackup,
 	})
 	response.OK(c, secrets)
 }
@@ -148,6 +149,7 @@ func (h *CronHandler) TestSafeKeep(c *gin.Context) {
 	res, err := h.service.TestSafeKeepConnection(c.Request.Context(), id, req)
 	if err != nil {
 		recordAdminAudit(c, h.auditSvc, "cron.test_safekeep", "cron_job", id, service.AuditStatusFailure, map[string]any{
+			"job_key":      service.JobKeySafeKeepBackup,
 			"api_base_url": strings.TrimSpace(req.APIBaseURL),
 			"error":        err.Error(),
 		})
@@ -166,6 +168,7 @@ func (h *CronHandler) TestSafeKeep(c *gin.Context) {
 	}
 
 	recordAdminAudit(c, h.auditSvc, "cron.test_safekeep", "cron_job", id, service.AuditStatusSuccess, map[string]any{
+		"job_key":        service.JobKeySafeKeepBackup,
 		"api_base_url":   strings.TrimSpace(req.APIBaseURL),
 		"upstream_count": len(res.Upstreams),
 	})

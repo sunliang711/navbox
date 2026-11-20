@@ -25,6 +25,7 @@ const (
 
 type SiteService interface {
 	ListSites(ctx context.Context, query dto.SiteListQuery) ([]dto.SiteResp, error)
+	GetSite(ctx context.Context, id string) (*dto.SiteResp, error)
 	CreateSite(ctx context.Context, req dto.SiteSaveReq) (*dto.SiteResp, error)
 	UpdateSite(ctx context.Context, id string, req dto.SiteSaveReq) (*dto.SiteResp, error)
 	DeleteSite(ctx context.Context, id string) error
@@ -81,6 +82,14 @@ func (s *siteService) ListSites(ctx context.Context, query dto.SiteListQuery) ([
 		return nil, err
 	}
 	return mapSiteList(sites, tagsBySiteID), nil
+}
+
+func (s *siteService) GetSite(ctx context.Context, id string) (*dto.SiteResp, error) {
+	siteID, err := parseUUID(id)
+	if err != nil {
+		return nil, err
+	}
+	return s.getSiteResp(ctx, siteID)
 }
 
 func (s *siteService) CreateSite(ctx context.Context, req dto.SiteSaveReq) (*dto.SiteResp, error) {

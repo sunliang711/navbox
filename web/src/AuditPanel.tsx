@@ -1,6 +1,14 @@
-import { Download, Eye, RotateCcw, Search, X } from 'lucide-react';
+import { Code2, Download, Eye, RotateCcw, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { getAuditLogsExportUrl, listAuditLogs } from './api';
+import {
+  AUDIT_ACTION_GROUPS,
+  formatAuditAction,
+  formatAuditActor,
+  formatAuditDetailParams,
+  formatAuditResource,
+  parseAuditDetail
+} from './auditUtils';
 import { formatDateTime } from './cronUtils';
 import { usePreferences } from './preferences';
 import type { AuditLog, AuditQuery } from './types';
@@ -35,6 +43,7 @@ export function AuditPanel({ onUnauthorized }: { onUnauthorized: (err: unknown) 
   const [appliedQuery, setAppliedQuery] = useState<AuditQuery>({});
   const [pageErr, setPageErr] = useState('');
   const [detail, setDetail] = useState<AuditLog | null>(null);
+  const [showRawJson, setShowRawJson] = useState(false);
   const reqSeq = useRef(0);
 
   const toAuditQuery = (f: FilterState, targetOffset: number): AuditQuery => {
@@ -85,7 +94,7 @@ export function AuditPanel({ onUnauthorized }: { onUnauthorized: (err: unknown) 
   useEffect(() => {
     setOffset(0);
     void load(0, filters);
-  }, [filters.actorType, filters.status]);
+  }, [filters.actorType, filters.status, filters.action]);
 
   const handleSearch = () => {
     setOffset(0);
@@ -98,15 +107,14 @@ export function AuditPanel({ onUnauthorized }: { onUnauthorized: (err: unknown) 
     void load(0, emptyFilters);
   };
 
+  const openDetail = (item: AuditLog) => {
+    setShowRawJson(false);
+    setDetail(item);
+  };
+
   const hasActiveFilters = Boolean(
     filters.q || filters.action || filters.actorType || filters.status || filters.fromDate || filters.toDate
   );
-
-  const actorLabel = (actorType: string) => {
-    if (actorType === 'admin') return t('auditActorAdmin');
-    if (actorType === 'system') return t('auditActorSystem');
-    return actorType;
-  };
 
   const csvUrl = getAuditLogsExportUrl('csv', appliedQuery);
   const jsonUrl = getAuditLogsExportUrl('json', appliedQuery);
@@ -139,15 +147,23 @@ export function AuditPanel({ onUnauthorized }: { onUnauthorized: (err: unknown) 
             placeholder={t('auditSearchPlaceholder')}
           />
         </label>
-        <input
-          className="audit-filter-input"
+        <select
+          className="audit-filter-select"
           value={filters.action}
           onChange={(e) => setFilters({ ...filters, action: e.target.value })}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSearch();
-          }}
-          placeholder={t('auditActionPlaceholder')}
-        />
+          aria-label={t('auditColAction')}
+        >
+          <option value="">{t('auditActionAll')}</option>
+          {AUDIT_ACTION_GROUPS.map((group) => (
+            <optgroup key={group.labelKey} label={t(group.labelKey)}>
+              {group.options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {t(opt.labelKey)}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
         <select
           className="audit-filter-select"
           value={filters.actorType}
@@ -221,87 +237,101 @@ export function AuditPanel({ onUnauthorized }: { onUnauthorized: (err: unknown) 
                 </tr>
               </thead>
               <tbody>
-                {logs.map((item) => (
-                  <tr key={item.id}>
-                    <td className="nowrap-cell">{formatDateTime(item.created_at, language)}</td>
-                    <td className="nowrap-cell">
-                      <span className="table-tag">{actorLabel(item.actor_type)}</span>{' '}
-                      <strong>{item.actor_name}</strong>
-                    </td>
-                    <td>
-                      <code className="audit-action-code">{item.action}</code>
-                    </td>
-                    <td className="audit-resource-cell">
-                      <span>{item.resource_type || '—'}</span>
-                      {item.resource_id && <span className="audit-resource-id"> · {item.resource_id}</span>}
-                    </td>
-                    <td className="nowrap-cell">
-                      <code className="mono-muted">{item.ip_address || '-'}</code>
-                    </td>
-                    <td>
-                      <span
-                        className={
-                          item.status === 'success'
-                            ? 'status-pill status-success'
-                            : 'status-pill status-danger'
-                        }
-                      >
-                        {item.status === 'success' ? t('auditStatusSuccess') : t('auditStatusFailure')}
-                      </span>
-                    </td>
-                    <td className="actions-cell">
-                      <div className="row-actions">
-                        <button type="button" onClick={() => setDetail(item)} title={t('auditViewDetail')}>
-                          <Eye size={15} aria-hidden="true" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {logs.map((item) => {
+                  const actor = formatAuditActor(item, t);
+                  const action = formatAuditAction(item.action, t);
+                  const resource = formatAuditResource(item, t, language);
+                  return (
+                    <tr key={item.id}>
+                      <td className="nowrap-cell">{formatDateTime(item.created_at, language)}</td>
+                      <td className="nowrap-cell">
+                        <span className="table-tag">{actor.badge}</span>
+                        {actor.name && <strong className="audit-actor-name"> {actor.name}</strong>}
+                      </td>
+                      <td className="nowrap-cell">
+                        <span className="audit-action-label" title={item.action}>
+                          {action.label}
+                        </span>
+                      </td>
+                      <td className="audit-resource-cell">
+                        <div className="audit-resource-main">
+                          <span className="audit-resource-type">{resource.typeLabel}</span>
+                          {resource.target && <span className="audit-resource-target"> · {resource.target}</span>}
+                        </div>
+                        {resource.summary && (
+                          <div className="audit-resource-summary" title={resource.summary}>
+                            {resource.summary}
+                          </div>
+                        )}
+                      </td>
+                      <td className="nowrap-cell">
+                        <code className="mono-muted">{item.ip_address || '-'}</code>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            item.status === 'success'
+                              ? 'status-pill status-success'
+                              : 'status-pill status-danger'
+                          }
+                        >
+                          {item.status === 'success' ? t('auditStatusSuccess') : t('auditStatusFailure')}
+                        </span>
+                      </td>
+                      <td className="actions-cell">
+                        <div className="row-actions">
+                          <button type="button" onClick={() => openDetail(item)} title={t('auditViewDetail')}>
+                            <Eye size={15} aria-hidden="true" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           <div className="admin-mobile-list">
-            {logs.map((item) => (
-              <article className="mobile-admin-card" key={item.id}>
-                <div className="mobile-card-head">
-                  <div className="mobile-card-title">
-                    <strong>
-                      <code className="audit-action-code">{item.action}</code>
-                    </strong>
-                    <span>{formatDateTime(item.created_at, language)}</span>
-                  </div>
-                  <span
-                    className={
-                      item.status === 'success'
-                        ? 'status-pill status-success'
-                        : 'status-pill status-danger'
-                    }
-                  >
-                    {item.status === 'success' ? t('auditStatusSuccess') : t('auditStatusFailure')}
-                  </span>
-                </div>
-                <div className="mobile-card-meta">
-                  <span className="table-tag">
-                    {actorLabel(item.actor_type)} · {item.actor_name}
-                  </span>
-                  {item.resource_type && (
-                    <span className="status-pill">
-                      {item.resource_type}
-                      {item.resource_id ? ` · ${item.resource_id}` : ''}
+            {logs.map((item) => {
+              const actor = formatAuditActor(item, t);
+              const action = formatAuditAction(item.action, t);
+              const resource = formatAuditResource(item, t, language);
+              return (
+                <article className="mobile-admin-card" key={item.id}>
+                  <div className="mobile-card-head">
+                    <div className="mobile-card-title">
+                      <strong title={item.action}>{action.label}</strong>
+                      <span>{formatDateTime(item.created_at, language)}</span>
+                    </div>
+                    <span
+                      className={
+                        item.status === 'success'
+                          ? 'status-pill status-success'
+                          : 'status-pill status-danger'
+                      }
+                    >
+                      {item.status === 'success' ? t('auditStatusSuccess') : t('auditStatusFailure')}
                     </span>
-                  )}
-                  {item.ip_address && <span className="status-pill">{item.ip_address}</span>}
-                </div>
-                <div className="cron-mobile-actions">
-                  <button type="button" onClick={() => setDetail(item)}>
-                    <Eye size={15} aria-hidden="true" />
-                    {t('auditViewDetail')}
-                  </button>
-                </div>
-              </article>
-            ))}
+                  </div>
+                  <div className="mobile-card-meta">
+                    <span className="table-tag">{actor.name ? `${actor.badge} · ${actor.name}` : actor.badge}</span>
+                    <span className="status-pill">
+                      {resource.typeLabel}
+                      {resource.target ? ` · ${resource.target}` : ''}
+                    </span>
+                    {item.ip_address && <span className="status-pill">{item.ip_address}</span>}
+                  </div>
+                  {resource.summary && <p className="audit-mobile-summary">{resource.summary}</p>}
+                  <div className="cron-mobile-actions">
+                    <button type="button" onClick={() => openDetail(item)}>
+                      <Eye size={15} aria-hidden="true" />
+                      {t('auditViewDetail')}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </>
       )}
@@ -336,45 +366,154 @@ export function AuditPanel({ onUnauthorized }: { onUnauthorized: (err: unknown) 
         </div>
       </div>
 
-      {detail && (
-        <div className="confirm-backdrop" onClick={() => setDetail(null)} role="presentation">
-          <div
-            className="audit-detail-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('auditDetailTitle', { id: detail.id })}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header>
-              <h2>{t('auditDetailTitle', { id: detail.id })}</h2>
-              <button type="button" onClick={() => setDetail(null)} title={t('close')}>
-                <X size={18} aria-hidden="true" />
-              </button>
-            </header>
-            <pre className="audit-detail-pre">
-              {JSON.stringify(
-                {
-                  ...detail,
-                  detail: (() => {
-                    try {
-                      return JSON.parse(detail.detail_json);
-                    } catch {
-                      return detail.detail_json;
-                    }
-                  })()
-                },
-                null,
-                2
-              )}
-            </pre>
-            <div className="audit-detail-footer">
-              <button type="button" className="secondary-btn" onClick={() => setDetail(null)}>
-                {t('close')}
-              </button>
+      {detail && (() => {
+        const actor = formatAuditActor(detail, t);
+        const action = formatAuditAction(detail.action, t);
+        const resource = formatAuditResource(detail, t, language);
+        const paramRows = formatAuditDetailParams(detail, t, language);
+        const showResourceId = Boolean(
+          detail.resource_id && !(detail.resource_type === 'admin_setting' && detail.resource_id === '1')
+        );
+        return (
+          <div className="confirm-backdrop" onClick={() => setDetail(null)} role="presentation">
+            <div
+              className="audit-detail-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('auditDetailTitle', { id: detail.id })}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <header>
+                <h2>{t('auditDetailTitle', { id: detail.id })}</h2>
+                <button type="button" onClick={() => setDetail(null)} title={t('close')}>
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </header>
+
+              <div className="audit-detail-body">
+                <section className="audit-detail-section">
+                  <h3>{t('auditDetailSectionSummary')}</h3>
+                  <dl className="audit-detail-kv">
+                    <div>
+                      <dt>{t('auditDetailFieldAction')}</dt>
+                      <dd>
+                        <strong>{action.label}</strong>
+                        <code className="audit-detail-code-tag">{detail.action}</code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t('auditDetailFieldResult')}</dt>
+                      <dd>
+                        <span
+                          className={
+                            detail.status === 'success'
+                              ? 'status-pill status-success'
+                              : 'status-pill status-danger'
+                          }
+                        >
+                          {detail.status === 'success' ? t('auditStatusSuccess') : t('auditStatusFailure')}
+                        </span>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t('auditDetailFieldTime')}</dt>
+                      <dd>{formatDateTime(detail.created_at, language)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('auditDetailFieldActor')}</dt>
+                      <dd>{actor.name ? `${actor.badge} · ${actor.name}` : actor.badge}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('auditDetailFieldResource')}</dt>
+                      <dd>
+                        {resource.typeLabel}
+                        {resource.target ? ` · ${resource.target}` : ''}
+                      </dd>
+                    </div>
+                    {showResourceId && (
+                      <div>
+                        <dt>{t('auditDetailFieldResourceId')}</dt>
+                        <dd>
+                          <code className="mono-muted">{detail.resource_id}</code>
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </section>
+
+                <section className="audit-detail-section">
+                  <h3>{t('auditDetailSectionParams')}</h3>
+                  {paramRows.length === 0 ? (
+                    <p className="audit-detail-empty">{t('auditDetailNoExtra')}</p>
+                  ) : (
+                    <dl className="audit-detail-kv">
+                      {paramRows.map((row, idx) => (
+                        <div key={`${row.label}-${idx}`}>
+                          <dt>{row.label}</dt>
+                          <dd className={row.mono ? 'audit-detail-mono' : undefined}>{row.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </section>
+
+                {(detail.ip_address || detail.request_id || detail.user_agent) && (
+                  <section className="audit-detail-section">
+                    <h3>{t('auditDetailSectionTech')}</h3>
+                    <dl className="audit-detail-kv">
+                      {detail.ip_address && (
+                        <div>
+                          <dt>{t('auditDetailFieldIp')}</dt>
+                          <dd className="audit-detail-mono">{detail.ip_address}</dd>
+                        </div>
+                      )}
+                      {detail.request_id && (
+                        <div>
+                          <dt>{t('auditDetailFieldRequestId')}</dt>
+                          <dd className="audit-detail-mono">{detail.request_id}</dd>
+                        </div>
+                      )}
+                      {detail.user_agent && (
+                        <div>
+                          <dt>{t('auditDetailFieldUserAgent')}</dt>
+                          <dd className="audit-detail-mono">{detail.user_agent}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </section>
+                )}
+
+                {showRawJson && (
+                  <pre className="audit-detail-pre">
+                    {JSON.stringify(
+                      {
+                        ...detail,
+                        detail: parseAuditDetail(detail.detail_json)
+                      },
+                      null,
+                      2
+                    )}
+                  </pre>
+                )}
+              </div>
+
+              <div className="audit-detail-footer">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setShowRawJson((prev) => !prev)}
+                >
+                  <Code2 size={14} aria-hidden="true" />
+                  {showRawJson ? t('auditDetailHideRaw') : t('auditDetailShowRaw')}
+                </button>
+                <button type="button" className="secondary-btn" onClick={() => setDetail(null)}>
+                  {t('close')}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </section>
   );
 }
