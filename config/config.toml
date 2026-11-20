@@ -18,7 +18,7 @@ conn_max_idle_time = "30m"
 connect_timeout = "5s"
 
 [auth]
-session_ttl = "24h"
+session_ttl = "168h"
 cookie_name = "navbox_admin_session"
 cookie_secure = false
 initial_password_length = 16

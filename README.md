@@ -46,7 +46,7 @@ services:
       NAVBOX_HTTP_ADDR: ":8037"
       NAVBOX_DATABASE_DSN: "host=postgres user=navbox password=navbox dbname=navbox port=5432 sslmode=disable TimeZone=UTC"
       NAVBOX_UPLOAD_DIR: "/app/data/uploads"
-      NAVBOX_AUTH_SESSION_TTL: "24h"
+      NAVBOX_AUTH_SESSION_TTL: "168h"
       NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
       NAVBOX_ICON_FETCH_SKIP_TLS_VERIFY: ${NAVBOX_ICON_FETCH_SKIP_TLS_VERIFY:-false}
     ports:
@@ -115,7 +115,7 @@ docker compose build navbox
 | `NAVBOX_HTTP_ADDR` | HTTP 监听地址 | `:8037` |
 | `NAVBOX_DATABASE_DSN` | PostgreSQL DSN | `host=postgres user=navbox password=navbox dbname=navbox port=5432 sslmode=disable TimeZone=UTC` |
 | `NAVBOX_UPLOAD_DIR` | icon 上传目录 | `/app/data/uploads` |
-| `NAVBOX_AUTH_SESSION_TTL` | admin Session 有效期 | `24h` |
+| `NAVBOX_AUTH_SESSION_TTL` | admin Session 有效期（默认 7 天） | `168h` |
 | `NAVBOX_RESTORE_MODE` | 忘记 admin 密码时临时设置为 `admin-password` | `admin-password` |
 | `NAVBOX_RESTORE_TOKEN` | 恢复模式使用的一次性 Token，启动后 5 分钟内有效 | `openssl rand -hex 32` |
 | `NAVBOX_ICON_FETCH_ALLOWED_PRIVATE_CIDRS` | 允许获取 icon 的内网 CIDR 白名单 | `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16` |

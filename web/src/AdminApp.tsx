@@ -94,7 +94,7 @@ const emptyTagForm: TagSaveReq = {
   is_enabled: true
 };
 
-export function AdminApp() {
+export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void } = {}) {
   const { t } = usePreferences();
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -912,7 +912,10 @@ export function AdminApp() {
         </button>
         <div className="admin-header-actions desktop-admin-actions">
           <PreferenceControls />
-          <button type="button" onClick={() => (window.location.href = '/')}>
+          <button
+            type="button"
+            onClick={() => (onNavigate ? onNavigate('/') : (window.location.href = '/'))}
+          >
             {t('visitorHome')}
           </button>
           <button type="button" onClick={handleLogout}>
@@ -925,7 +928,7 @@ export function AdminApp() {
       <MobileAdminMenu
         open={mobileAdminMenuOpen}
         onClose={() => setMobileAdminMenuOpen(false)}
-        onHome={() => (window.location.href = '/')}
+        onHome={() => (onNavigate ? onNavigate('/') : (window.location.href = '/'))}
         onLogout={handleLogout}
       />
 

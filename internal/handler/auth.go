@@ -3,12 +3,12 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"navbox/internal/config"
 	"navbox/internal/dto"
+	"navbox/internal/middleware"
 	"navbox/internal/response"
 	"navbox/internal/service"
 )
@@ -32,6 +32,8 @@ func (h *AuthHandler) RegisterRoutes(rg *gin.RouterGroup, authMiddleware gin.Han
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
+	middleware.SetNoCacheHeaders(c)
+
 	var req dto.LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "参数错误")
@@ -54,28 +56,33 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	h.setSessionCookie(c, result.Token)
+	middleware.SetSessionCookie(c, h.cfg, result.Token)
 	recordAdminAudit(c, h.auditSvc, "auth.login", "session", "", service.AuditStatusSuccess, nil)
 	response.OK(c, dto.SessionResp{Authenticated: true})
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
+	middleware.SetNoCacheHeaders(c)
+
 	token, _ := c.Cookie(h.cfg.Auth.CookieName)
 	if err := h.service.Logout(c.Request.Context(), token); err != nil {
 		response.Error(c, http.StatusInternalServerError, response.CodeError, "系统繁忙，请稍后再试")
 		return
 	}
 
-	h.clearSessionCookie(c)
+	middleware.ClearSessionCookie(c, h.cfg)
 	recordAdminAudit(c, h.auditSvc, "auth.logout", "session", "", service.AuditStatusSuccess, nil)
 	response.OK(c, dto.SessionResp{Authenticated: false})
 }
 
 func (h *AuthHandler) GetSession(c *gin.Context) {
+	middleware.SetNoCacheHeaders(c)
 	response.OK(c, dto.SessionResp{Authenticated: true})
 }
 
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	middleware.SetNoCacheHeaders(c)
+
 	var req dto.ChangePasswordReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "参数错误")
@@ -103,23 +110,4 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	recordAdminAudit(c, h.auditSvc, "auth.change_password", "admin_setting", "1", service.AuditStatusSuccess, nil)
 	response.OK(c, dto.SessionResp{Authenticated: true})
-}
-
-func (h *AuthHandler) setSessionCookie(c *gin.Context, token string) {
-	maxAge := h.sessionMaxAge()
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(h.cfg.Auth.CookieName, token, maxAge, "/", "", h.cfg.Auth.CookieSecure, true)
-}
-
-func (h *AuthHandler) clearSessionCookie(c *gin.Context) {
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(h.cfg.Auth.CookieName, "", -1, "/", "", h.cfg.Auth.CookieSecure, true)
-}
-
-func (h *AuthHandler) sessionMaxAge() int {
-	ttl, err := time.ParseDuration(h.cfg.Auth.SessionTTL)
-	if err != nil {
-		return 0
-	}
-	return int(ttl.Seconds())
 }

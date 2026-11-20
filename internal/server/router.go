@@ -39,14 +39,17 @@ func NewRouter(
 
 	api := router.Group("/api/v1")
 	healthHandler.RegisterRoutes(api)
-	siteHandler.RegisterPublicRoutes(api)
-	tagHandler.RegisterPublicRoutes(api)
 	if cfg.Restore.Enabled() {
+		siteHandler.RegisterPublicRoutes(api)
+		tagHandler.RegisterPublicRoutes(api)
 		restoreHandler.RegisterRoutes(api)
 		registerUploadRoutes(router, cfg)
 		registerWebRoutes(router, assets)
 		return router
 	}
+	public := api.Group("", middleware.TouchAdminSession(cfg, authService))
+	siteHandler.RegisterPublicRoutes(public)
+	tagHandler.RegisterPublicRoutes(public)
 	authHandler.RegisterRoutes(api, middleware.AdminSession(cfg, authService))
 
 	admin := api.Group("/admin", middleware.AdminSession(cfg, authService))

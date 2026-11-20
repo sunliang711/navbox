@@ -29,14 +29,35 @@ const tagMatchQueryKey = 'match';
 const viewQueryKey = 'view';
 
 export function App() {
+  const [pathname, setPathname] = useState(() => window.location.pathname);
+
+  useEffect(() => {
+    function handlePopState() {
+      setPathname(window.location.pathname);
+    }
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  function navigate(targetPath: string) {
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+    setPathname(targetPath);
+  }
+
   return (
     <PreferencesProvider>
-      {window.location.pathname.startsWith('/admin') ? <AdminApp /> : <VisitorApp />}
+      {pathname.startsWith('/admin') ? (
+        <AdminApp onNavigate={navigate} />
+      ) : (
+        <VisitorApp onNavigate={navigate} />
+      )}
     </PreferencesProvider>
   );
 }
 
-function VisitorApp() {
+function VisitorApp({ onNavigate }: { onNavigate: (path: string) => void }) {
   const { t } = usePreferences();
   const [tags, setTags] = useState<Tag[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -320,7 +341,20 @@ function VisitorApp() {
                       <span className="toggle-thumb" />
                     </span>
                   </label>
-                  <a className="toolbar-menu-item admin-link" href="/admin">{t('admin')}</a>
+                  <a
+                    className="toolbar-menu-item admin-link"
+                    href="/admin"
+                    onClick={(event) => {
+                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+                        return;
+                      }
+                      event.preventDefault();
+                      setSettingsOpen(false);
+                      onNavigate('/admin');
+                    }}
+                  >
+                    {t('admin')}
+                  </a>
                 </div>
               )}
             </div>

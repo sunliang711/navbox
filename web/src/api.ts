@@ -37,6 +37,7 @@ export function isUnauthorizedError(error: unknown): error is UnauthorizedError 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
     credentials: 'include',
+    cache: 'no-store',
     ...init,
     headers: {
       Accept: 'application/json',

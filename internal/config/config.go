@@ -120,7 +120,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("database.conn_max_lifetime", "1h")
 	v.SetDefault("database.conn_max_idle_time", "30m")
 	v.SetDefault("database.connect_timeout", "5s")
-	v.SetDefault("auth.session_ttl", "24h")
+	v.SetDefault("auth.session_ttl", "168h")
 	v.SetDefault("auth.cookie_name", "navbox_admin_session")
 	v.SetDefault("auth.cookie_secure", false)
 	v.SetDefault("auth.initial_password_length", 16)

@@ -79,9 +79,12 @@ func TestAdminSessionRenewsCookie(t *testing.T) {
 
 	require.Equal(t, http.StatusNoContent, recorder.Code)
 	require.Equal(t, "session-token", authService.token)
+	require.Equal(t, "no-store, private", recorder.Header().Get("Cache-Control"))
+	require.Equal(t, "Cookie", recorder.Header().Get("Vary"))
 	setCookie := recorder.Header().Get("Set-Cookie")
 	require.Contains(t, setCookie, "navbox_admin_session=session-token")
 	require.Contains(t, setCookie, "Max-Age=7200")
+	require.Contains(t, setCookie, "Expires=")
 	require.Contains(t, setCookie, "HttpOnly")
 	require.Contains(t, setCookie, "Secure")
 	require.Contains(t, setCookie, "SameSite=Lax")
@@ -114,5 +117,76 @@ func TestAdminSessionDoesNotSetCookieWithoutRenewal(t *testing.T) {
 	router.ServeHTTP(recorder, req)
 
 	require.Equal(t, http.StatusNoContent, recorder.Code)
+	require.Equal(t, "no-store, private", recorder.Header().Get("Cache-Control"))
 	require.Empty(t, recorder.Header().Values("Set-Cookie"))
+}
+
+func TestTouchAdminSessionOnPublicRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := config.Config{
+		Auth: config.AuthConfig{
+			SessionTTL: "2h",
+			CookieName: "navbox_admin_session",
+		},
+	}
+
+	t.Run("guest without cookie skips validation", func(t *testing.T) {
+		authService := &fakeSessionAuthService{}
+		router := gin.New()
+		router.GET("/sites", TouchAdminSession(cfg, authService), func(c *gin.Context) {
+			c.Status(http.StatusOK)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/sites", nil)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, req)
+
+		require.Equal(t, http.StatusOK, recorder.Code)
+		require.Empty(t, authService.token)
+		require.Empty(t, recorder.Header().Values("Set-Cookie"))
+	})
+
+	t.Run("logged-in admin renews session silently", func(t *testing.T) {
+		authService := &fakeSessionAuthService{
+			result: service.SessionValidationResult{
+				ExpiresAt: time.Now().UTC().Add(2 * time.Hour),
+				Renewed:   true,
+			},
+		}
+		router := gin.New()
+		router.GET("/sites", TouchAdminSession(cfg, authService), func(c *gin.Context) {
+			c.Status(http.StatusOK)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/sites", nil)
+		req.AddCookie(&http.Cookie{Name: cfg.Auth.CookieName, Value: "active-token"})
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, req)
+
+		require.Equal(t, http.StatusOK, recorder.Code)
+		require.Equal(t, "active-token", authService.token)
+		setCookie := recorder.Header().Get("Set-Cookie")
+		require.Contains(t, setCookie, "navbox_admin_session=active-token")
+		require.Contains(t, setCookie, "Max-Age=7200")
+		require.Contains(t, setCookie, "Expires=")
+	})
+
+	t.Run("expired cookie never blocks visitor page", func(t *testing.T) {
+		authService := &fakeSessionAuthService{
+			err: service.ErrUnauthenticated,
+		}
+		router := gin.New()
+		router.GET("/sites", TouchAdminSession(cfg, authService), func(c *gin.Context) {
+			c.Status(http.StatusOK)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/sites", nil)
+		req.AddCookie(&http.Cookie{Name: cfg.Auth.CookieName, Value: "expired-token"})
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, req)
+
+		require.Equal(t, http.StatusOK, recorder.Code)
+		require.Empty(t, recorder.Header().Values("Set-Cookie"))
+	})
 }
