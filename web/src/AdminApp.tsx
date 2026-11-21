@@ -43,7 +43,7 @@ import {
   getRestoreStatus,
   importConfig,
   isUnauthorizedError,
-  listSites,
+  listAdminSites,
   listTags,
   loginAdmin,
   logoutAdmin,
@@ -84,6 +84,7 @@ const emptySiteForm: SiteSaveReq = {
   icon_value: '',
   background_color: '',
   only_name: false,
+  is_enabled: true,
   is_favorite: false,
   sort_order: 0,
   tag_ids: []
@@ -304,7 +305,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   async function refreshData() {
     setLoading(true);
     try {
-      const [siteList, tagList] = await Promise.all([listSites({}), listTags()]);
+      const [siteList, tagList] = await Promise.all([listAdminSites(), listTags()]);
       setSites(siteList);
       setTags(tagList);
       setSiteOrder(Object.fromEntries(siteList.map((site) => [site.id, site.sort_order])));
@@ -367,6 +368,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       icon_value: site.icon_value,
       background_color: site.background_color,
       only_name: site.only_name,
+      is_enabled: site.is_enabled,
       is_favorite: site.is_favorite,
       sort_order: site.sort_order,
       tag_ids: site.tags.map((tag) => tag.id)
@@ -1302,7 +1304,12 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
                               />
                             </td>
                             <td className="site-cell" data-label={t('site')}>
-                              <strong>{site.title}</strong>
+                              <strong className="site-title-with-status">
+                                {site.title}
+                                <small className={site.is_enabled ? 'status-pill active' : 'status-pill'}>
+                                  {site.is_enabled ? t('enabledStatus') : t('siteDisabled')}
+                                </small>
+                              </strong>
                               <span>{site.default_url}</span>
                             </td>
                             <td className="tag-cell" data-label="Tag">
@@ -2041,6 +2048,9 @@ function MobileSiteCard({
       </div>
       {site.description && <p className="mobile-card-description">{site.description}</p>}
       <div className="mobile-card-meta">
+        <span className={site.is_enabled ? 'status-pill active' : 'status-pill'}>
+          {site.is_enabled ? t('enabledStatus') : t('siteDisabled')}
+        </span>
         <span className="status-pill">{site.open_method === 'current_window' ? t('currentTab') : t('newTab')}</span>
         <span className={site.is_favorite ? 'status-pill favorite-pill active' : 'status-pill favorite-pill'}>
           {site.is_favorite ? t('favorite') : t('no')}
@@ -2406,6 +2416,11 @@ function SiteForm({
             <option value="current_window">{t('currentWindow')}</option>
           </select>
         </label>
+        <label className="checkbox-line">
+          <input type="checkbox" checked={draft.is_enabled} onChange={(event) => patch({ is_enabled: event.target.checked })} />
+          <span>{t('siteEnabled')}</span>
+        </label>
+        <p className="field-hint">{t('siteEnabledHint')}</p>
         <div className="checkbox-row">
           <label>
             <input type="checkbox" checked={draft.only_name} onChange={(event) => patch({ only_name: event.target.checked })} />

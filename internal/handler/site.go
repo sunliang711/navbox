@@ -26,6 +26,7 @@ func (h *SiteHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
 }
 
 func (h *SiteHandler) RegisterAdminRoutes(rg *gin.RouterGroup) {
+	rg.GET("/sites", h.ListAdminSites)
 	rg.POST("/sites", h.CreateSite)
 	rg.PUT("/sites/:id", h.UpdateSite)
 	rg.DELETE("/sites/:id", h.DeleteSite)
@@ -35,11 +36,20 @@ func (h *SiteHandler) RegisterAdminRoutes(rg *gin.RouterGroup) {
 }
 
 func (h *SiteHandler) ListSites(c *gin.Context) {
+	h.listSites(c, false)
+}
+
+func (h *SiteHandler) ListAdminSites(c *gin.Context) {
+	h.listSites(c, true)
+}
+
+func (h *SiteHandler) listSites(c *gin.Context, includeDisabled bool) {
 	sites, err := h.service.ListSites(c.Request.Context(), dto.SiteListQuery{
-		Search:   c.Query("search"),
-		TagIDs:   parseQueryIDs(c, "tag_ids"),
-		TagMatch: c.Query("tag_match"),
-		View:     c.Query("view"),
+		IncludeDisabled: includeDisabled,
+		Search:          c.Query("search"),
+		TagIDs:          parseQueryIDs(c, "tag_ids"),
+		TagMatch:        c.Query("tag_match"),
+		View:            c.Query("view"),
 	})
 	if err != nil {
 		writeServiceError(c, err)
@@ -63,6 +73,7 @@ func (h *SiteHandler) CreateSite(c *gin.Context) {
 	recordAdminAudit(c, h.auditSvc, "site.create", "site", site.ID, service.AuditStatusSuccess, map[string]any{
 		"title":       site.Title,
 		"default_url": site.DefaultURL,
+		"is_enabled":  site.IsEnabled,
 	})
 	response.OK(c, site)
 }
@@ -82,6 +93,7 @@ func (h *SiteHandler) UpdateSite(c *gin.Context) {
 	recordAdminAudit(c, h.auditSvc, "site.update", "site", site.ID, service.AuditStatusSuccess, map[string]any{
 		"title":       site.Title,
 		"default_url": site.DefaultURL,
+		"is_enabled":  site.IsEnabled,
 	})
 	response.OK(c, site)
 }

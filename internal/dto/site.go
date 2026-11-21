@@ -3,10 +3,11 @@ package dto
 import "time"
 
 type SiteListQuery struct {
-	Search   string
-	TagIDs   []string
-	TagMatch string
-	View     string
+	IncludeDisabled bool
+	Search          string
+	TagIDs          []string
+	TagMatch        string
+	View            string
 }
 
 type SiteResp struct {
@@ -20,6 +21,7 @@ type SiteResp struct {
 	IconValue       string    `json:"icon_value"`
 	BackgroundColor string    `json:"background_color"`
 	OnlyName        bool      `json:"only_name"`
+	IsEnabled       bool      `json:"is_enabled"`
 	IsFavorite      bool      `json:"is_favorite"`
 	SortOrder       int       `json:"sort_order"`
 	Tags            []TagResp `json:"tags"`
@@ -37,6 +39,7 @@ type SiteSaveReq struct {
 	IconValue       string   `json:"icon_value"`
 	BackgroundColor string   `json:"background_color"`
 	OnlyName        bool     `json:"only_name"`
+	IsEnabled       *bool    `json:"is_enabled"`
 	IsFavorite      bool     `json:"is_favorite"`
 	SortOrder       int      `json:"sort_order"`
 	TagIDs          []string `json:"tag_ids"`

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -99,4 +100,26 @@ func newTestImportExportService(t *testing.T) *importExportService {
 	require.NoError(t, err)
 
 	return &importExportService{store: store}
+}
+
+func TestArchiveSiteEnabledCompatibility(t *testing.T) {
+	for _, field := range []string{"", `,"is_enabled":true`, `,"is_enabled":false`} {
+		var archive dto.NavboxArchive
+		err := json.Unmarshal([]byte(`{"sites":[{"id":"00000000-0000-0000-0000-000000000001","title":"Test","default_url":"https://example.com"`+field+`}]}`), &archive)
+		require.NoError(t, err)
+		sites, _, _, err := parseArchiveSites(archive.Sites)
+		require.NoError(t, err)
+		want := field != `,"is_enabled":false`
+		require.Equal(t, want, sites[0].Enabled())
+		exported := mapArchiveSites(sites, nil)
+		require.NotNil(t, exported[0].IsEnabled)
+		require.Equal(t, want, *exported[0].IsEnabled)
+		content, err := json.Marshal(exported)
+		require.NoError(t, err)
+		var roundTrip []dto.ArchiveSite
+		require.NoError(t, json.Unmarshal(content, &roundTrip))
+		sites, _, _, err = parseArchiveSites(roundTrip)
+		require.NoError(t, err)
+		require.Equal(t, want, sites[0].Enabled())
+	}
 }

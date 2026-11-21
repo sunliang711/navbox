@@ -121,16 +121,17 @@ function VisitorApp({ onNavigate }: { onNavigate: (path: string) => void }) {
   }, [t]);
 
   useEffect(() => {
-    if (!ready || view === 'recent') {
+    if (!ready) {
       return;
     }
 
     let cancelled = false;
     async function loadSiteData() {
       setLoading(true);
+      setSites([]);
       setError('');
       try {
-        const data = await listSites({
+        const data = await listSites(view === 'recent' ? {} : {
           search: search.trim(),
           tagIds: selectedTagIds,
           tagMatch: selectedTagIds.length > 0 ? tagMatch : undefined,
@@ -211,7 +212,15 @@ function VisitorApp({ onNavigate }: { onNavigate: (path: string) => void }) {
     }
     return t('allTools');
   }, [selectedTagIds, t, tags, view]);
-  const displaySites = view === 'recent' ? filterRecentSites(recentSites, search) : sites;
+  // 最近访问只保留当前公开列表中的网站，避免缓存继续显示已禁用或删除的项。
+  const visibleRecentSites = useMemo(() => {
+    const sitesById = new Map(sites.map((site) => [site.id, site]));
+    return recentSites.flatMap((recent) => {
+      const site = sitesById.get(recent.id);
+      return site ? [{ ...site, visited_at: recent.visited_at }] : [];
+    });
+  }, [recentSites, sites]);
+  const displaySites = view === 'recent' ? filterRecentSites(visibleRecentSites, search) : sites;
 
   function togglePreferLan() {
     setPreferLan((current) => {

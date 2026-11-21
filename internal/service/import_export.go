@@ -466,6 +466,7 @@ func parseArchiveSites(items []dto.ArchiveSite) ([]model.Site, []model.SiteTag, 
 			IconValue:       strings.TrimSpace(item.IconValue),
 			BackgroundColor: strings.TrimSpace(item.BackgroundColor),
 			OnlyName:        item.OnlyName,
+			IsEnabled:       item.IsEnabled,
 			IsFavorite:      item.IsFavorite,
 			SortOrder:       item.SortOrder,
 		})
@@ -551,6 +552,7 @@ func mapArchiveSites(sites []model.Site, relations []model.SiteTag) []dto.Archiv
 			IconValue:       site.IconValue,
 			BackgroundColor: site.BackgroundColor,
 			OnlyName:        site.OnlyName,
+			IsEnabled:       boolPointer(site.Enabled()),
 			IsFavorite:      site.IsFavorite,
 			SortOrder:       site.SortOrder,
 			TagIDs:          tagIDsBySiteID[site.ID],
@@ -702,4 +704,8 @@ func removeFiles(paths []string) {
 	for _, item := range paths {
 		_ = os.Remove(item)
 	}
+}
+
+func boolPointer(value bool) *bool {
+	return &value
 }

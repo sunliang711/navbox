@@ -20,10 +20,11 @@ const (
 )
 
 type SiteListFilter struct {
-	Search   string
-	TagIDs   []uuid.UUID
-	TagMatch string
-	View     string
+	EnabledOnly bool
+	Search      string
+	TagIDs      []uuid.UUID
+	TagMatch    string
+	View        string
 }
 
 type SiteOrderUpdate struct {
@@ -185,21 +186,24 @@ func (r *siteRepo) CreateWithTags(ctx context.Context, site *model.Site, tagIDs 
 
 func (r *siteRepo) UpdateWithTags(ctx context.Context, site *model.Site, tagIDs []uuid.UUID) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&model.Site{}).
-			Where("id = ?", site.ID).
-			Updates(map[string]any{
-				"title":            site.Title,
-				"description":      site.Description,
-				"default_url":      site.DefaultURL,
-				"lan_url":          site.LANURL,
-				"open_method":      site.OpenMethod,
-				"icon_type":        site.IconType,
-				"icon_value":       site.IconValue,
-				"background_color": site.BackgroundColor,
-				"only_name":        site.OnlyName,
-				"is_favorite":      site.IsFavorite,
-				"sort_order":       site.SortOrder,
-			})
+		updates := map[string]any{
+			"title":            site.Title,
+			"description":      site.Description,
+			"default_url":      site.DefaultURL,
+			"lan_url":          site.LANURL,
+			"open_method":      site.OpenMethod,
+			"icon_type":        site.IconType,
+			"icon_value":       site.IconValue,
+			"background_color": site.BackgroundColor,
+			"only_name":        site.OnlyName,
+			"is_favorite":      site.IsFavorite,
+			"sort_order":       site.SortOrder,
+		}
+		// 旧客户端省略状态时保留数据库原值，避免意外重新启用。
+		if site.IsEnabled != nil {
+			updates["is_enabled"] = *site.IsEnabled
+		}
+		result := tx.Model(&model.Site{}).Where("id = ?", site.ID).Updates(updates)
 		if result.Error != nil {
 			return fmt.Errorf("update site: %w", result.Error)
 		}
@@ -294,6 +298,9 @@ func (r *siteRepo) UpdateOrder(ctx context.Context, items []SiteOrderUpdate) err
 }
 
 func applySiteFilter(query *gorm.DB, filter SiteListFilter) *gorm.DB {
+	if filter.EnabledOnly {
+		query = query.Where("sites.is_enabled = ?", true)
+	}
 	if filter.Search != "" {
 		like := "%" + filter.Search + "%"
 		query = query.Where(

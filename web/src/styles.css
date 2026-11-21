@@ -1799,6 +1799,11 @@ input[type='color'] {
   min-width: 220px;
 }
 
+.site-title-with-status {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .site-cell span {
   display: block;
   overflow: hidden;

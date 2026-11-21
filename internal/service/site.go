@@ -71,10 +71,11 @@ func (s *siteService) ListSites(ctx context.Context, query dto.SiteListQuery) ([
 	}
 
 	filter := repo.SiteListFilter{
-		Search:   strings.TrimSpace(query.Search),
-		TagIDs:   tagIDs,
-		TagMatch: tagMatch,
-		View:     mapSiteView(view),
+		EnabledOnly: !query.IncludeDisabled,
+		Search:      strings.TrimSpace(query.Search),
+		TagIDs:      tagIDs,
+		TagMatch:    tagMatch,
+		View:        mapSiteView(view),
 	}
 	sites, err := s.siteRepo.List(ctx, filter)
 	if err != nil {
@@ -273,6 +274,7 @@ func siteFromReq(req dto.SiteSaveReq) model.Site {
 		IconValue:       strings.TrimSpace(req.IconValue),
 		BackgroundColor: strings.TrimSpace(req.BackgroundColor),
 		OnlyName:        req.OnlyName,
+		IsEnabled:       req.IsEnabled,
 		IsFavorite:      req.IsFavorite,
 		SortOrder:       req.SortOrder,
 	}
@@ -324,6 +326,7 @@ func mapSite(site model.Site, tags []model.Tag) dto.SiteResp {
 		IconValue:       site.IconValue,
 		BackgroundColor: site.BackgroundColor,
 		OnlyName:        site.OnlyName,
+		IsEnabled:       site.Enabled(),
 		IsFavorite:      site.IsFavorite,
 		SortOrder:       site.SortOrder,
 		Tags:            mapTagList(tags),

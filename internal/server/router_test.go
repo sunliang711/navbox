@@ -195,6 +195,11 @@ func TestRouterSessionPersistsAcrossVisitorToAdminNavigation(t *testing.T) {
 	require.Equal(t, http.StatusOK, statusRec.Code)
 	require.Contains(t, statusRec.Body.String(), `"enabled":false`)
 
+	// 后台完整列表必须通过登录鉴权。
+	adminSitesRec := httptest.NewRecorder()
+	router.ServeHTTP(adminSitesRec, httptest.NewRequest(http.MethodGet, "/api/v1/admin/sites", nil))
+	require.Equal(t, http.StatusUnauthorized, adminSitesRec.Code)
+
 	// Admin logs in.
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/login", strings.NewReader(`{"password":"secret-password"}`))
 	loginReq.Header.Set("Content-Type", "application/json")
@@ -207,6 +212,12 @@ func TestRouterSessionPersistsAcrossVisitorToAdminNavigation(t *testing.T) {
 	sessionCookie := cookies[0]
 	require.Equal(t, "navbox_admin_session", sessionCookie.Name)
 	require.Equal(t, "valid-session-token", sessionCookie.Value)
+
+	adminSitesReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/sites", nil)
+	adminSitesReq.AddCookie(sessionCookie)
+	adminSitesRec = httptest.NewRecorder()
+	router.ServeHTTP(adminSitesRec, adminSitesReq)
+	require.Equal(t, http.StatusOK, adminSitesRec.Code)
 
 	// Simulate remaining TTL < 50% while browsing visitor homepage.
 	authSvc.expiresAt = time.Now().UTC().Add(12 * time.Hour)

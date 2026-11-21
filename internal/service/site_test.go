@@ -15,6 +15,7 @@ import (
 )
 
 type stubSiteRepo struct {
+	filter repo.SiteListFilter
 	created *model.Site
 }
 
@@ -22,7 +23,8 @@ func (r *stubSiteRepo) Count(context.Context) (int64, error) { return 0, nil }
 func (r *stubSiteRepo) CountByIDs(context.Context, []uuid.UUID) (int64, error) {
 	return 0, nil
 }
-func (r *stubSiteRepo) List(context.Context, repo.SiteListFilter) ([]model.Site, error) {
+func (r *stubSiteRepo) List(_ context.Context, filter repo.SiteListFilter) ([]model.Site, error) {
+	r.filter = filter
 	return nil, nil
 }
 func (r *stubSiteRepo) GetByID(_ context.Context, id uuid.UUID) (*model.Site, error) {
@@ -145,4 +147,27 @@ func TestCreateSiteUsesFetchedIconAndSkipsWhenProvided(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, iconSvc.calls)
 	require.Equal(t, "/uploads/custom.png", respManual.IconValue)
+}
+
+func TestSiteCreateEnabledStates(t *testing.T) {
+	for _, state := range []*bool{nil, boolPointer(true), boolPointer(false)} {
+		r := &stubSiteRepo{}
+		svc := NewSiteService(r, &stubSiteTagRepo{}, nil)
+		resp, err := svc.CreateSite(context.Background(), dto.SiteSaveReq{
+			Title: "Test", DefaultURL: "https://example.com", IconValue: "N", IsEnabled: state,
+		})
+		require.NoError(t, err)
+		require.Equal(t, state == nil || *state, resp.IsEnabled)
+		require.Equal(t, state, r.created.IsEnabled)
+	}
+}
+
+func TestSiteServiceVisibility(t *testing.T) {
+	for _, admin := range []bool{false, true} {
+		r := &stubSiteRepo{}
+		svc := NewSiteService(r, &stubSiteTagRepo{}, nil)
+		_, err := svc.ListSites(context.Background(), dto.SiteListQuery{IncludeDisabled: admin})
+		require.NoError(t, err)
+		require.Equal(t, !admin, r.filter.EnabledOnly)
+	}
 }

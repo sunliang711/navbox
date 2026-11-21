@@ -28,6 +28,7 @@ export type Site = {
   icon_value: string;
   background_color: string;
   only_name: boolean;
+  is_enabled: boolean;
   is_favorite: boolean;
   sort_order: number;
   tags: Tag[];
@@ -75,6 +76,7 @@ export type SiteSaveReq = {
   icon_value: string;
   background_color: string;
   only_name: boolean;
+  is_enabled: boolean;
   is_favorite: boolean;
   sort_order: number;
   tag_ids: string[];

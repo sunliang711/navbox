@@ -102,6 +102,10 @@ export function listSites(query: SiteQuery): Promise<Site[]> {
   return request<Site[]>(`/api/v1/sites${suffix ? `?${suffix}` : ''}`);
 }
 
+export function listAdminSites(): Promise<Site[]> {
+  return request<Site[]>('/api/v1/admin/sites');
+}
+
 export function getAdminSession(): Promise<SessionResp> {
   return request<SessionResp>('/api/v1/admin/session');
 }
