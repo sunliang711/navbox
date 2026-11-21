@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  Compass,
   Copy,
   ExternalLink,
   Heart,
@@ -291,9 +290,7 @@ function VisitorApp({ onNavigate }: { onNavigate: (path: string) => void }) {
         <header className="toolbar">
           <div className="toolbar-top">
             <a className="brand" href="/" aria-label="Navbox">
-              <span className="brand-mark" aria-hidden="true">
-                <Compass size={18} aria-hidden="true" />
-              </span>
+              <img className="brand-mark" src="/icon.svg?v=direction-box" alt="" aria-hidden="true" />
               <span className="brand-name">Navbox</span>
             </a>
             <div

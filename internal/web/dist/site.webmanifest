@@ -7,7 +7,7 @@
   "theme_color": "#0a1a2d",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/icon.svg?v=direction-box",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

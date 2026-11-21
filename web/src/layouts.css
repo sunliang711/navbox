@@ -54,7 +54,6 @@
 .content { width: min(1400px, 100%); }
 .toolbar { padding: 20px 0; margin-bottom: 32px; border-bottom: 1px solid var(--border); }
 .toolbar-top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'brand actions'; gap: 14px; }
-.brand-mark { border-radius: 8px; box-shadow: none; }
 .brand-name { font-weight: 700; }
 .visitor-intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
 .visitor-eyebrow { color: var(--accent); font-size: 11px; letter-spacing: 1.2px; }
