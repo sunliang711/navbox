@@ -147,7 +147,6 @@
 .side-panel:not(.side-panel-wide) { width: min(520px, 100%); }
 .side-panel > header { position: sticky; top: 0; z-index: 2; padding: 22px 0 18px; margin-bottom: 22px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .side-panel h2 { font-weight: 650; }
-.side-panel .site-form { gap: 24px; }
 .form-section { display: grid; gap: 14px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .form-section legend { padding: 0 0 14px; color: var(--text); font-size: 13px; font-weight: 650; }
 .admin-form label { font-weight: 500; }
@@ -160,6 +159,67 @@
 .form-advanced .icon-field-row { grid-template-columns: 1fr; }
 .form-submit-footer { position: sticky; bottom: -24px; z-index: 1; margin-top: auto; padding: 16px 0 20px; border-top: 1px solid var(--border); background: var(--surface); }
 .form-submit-footer > button { width: 100%; }
+
+/* 网站编辑使用独立滚动区域，始终保留标题和保存入口。 */
+.side-panel:has(.site-form) { width: min(580px, 100%); padding: 0; overflow: hidden; }
+.side-panel:has(.site-form) > header { position: static; flex: none; padding: 22px 28px; margin: 0; }
+.side-panel .site-form { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 0; }
+.site-form-body { display: grid; flex: 1; align-content: start; gap: 20px; min-height: 0; padding: 24px; overflow-y: auto; background: var(--bg); scrollbar-gutter: stable; }
+.site-form .form-section, .site-form .form-advanced { padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.site-form fieldset.form-section { display: block; }
+.site-form .form-section legend { float: left; display: flex; align-items: center; gap: 9px; width: 100%; margin-bottom: 20px; padding: 0; font-size: 14px; }
+.site-form .form-section legend svg, .site-form .form-advanced summary svg { flex: none; color: var(--accent); }
+.site-section-fields { display: grid; clear: both; gap: 18px; }
+.site-form input:not([type='checkbox']):not([type='file']), .site-form select { min-height: 43px; }
+.site-form textarea { min-height: 92px; line-height: 1.65; }
+.site-form .site-enabled-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 16px; border-radius: 10px; background: var(--surface-2); cursor: pointer; }
+.site-enabled-copy { display: grid; gap: 5px; color: var(--text); }
+.site-form .field-hint { margin: 0; font-weight: 400; line-height: 1.6; }
+.site-form .site-enabled-control input { appearance: none; width: 38px; height: 22px; padding: 2px; border: 1px solid var(--border-strong); border-radius: 20px; background: var(--border-strong); transition: background 0.15s ease, border-color 0.15s ease; }
+.site-enabled-control input::before { content: ''; display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0002; transition: transform 0.15s ease; }
+.site-form .site-enabled-control input:checked { border-color: var(--accent-strong); background: var(--accent-strong); }
+.site-enabled-control input:checked::before { transform: translateX(16px); }
+.site-display-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.site-form .site-display-options label, .site-form .site-tag-options label { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-2); background: var(--surface); cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+/* 保留原生复选框的键盘和读屏语义，以自绘标记统一选择样式。 */
+.site-display-options input, .site-tag-options input { position: absolute; opacity: 0; inset: 0; pointer-events: none; }
+.site-display-options label:hover, .site-tag-options label:hover { border-color: var(--accent-border); background: var(--accent-softer); }
+.site-form .site-display-options label:has(input:checked), .site-form .site-tag-options label:has(input:checked) { border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft); }
+.site-display-options label:has(input:focus-visible), .site-tag-options label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
+.site-option-mark { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 15px; height: 15px; border: 1px solid var(--border-strong); border-radius: 4px; }
+.site-option-mark svg { opacity: 0; }
+input:checked + .site-option-mark { border-color: var(--accent-strong); background: var(--accent-strong); color: #fff; }
+input:checked + .site-option-mark svg { opacity: 1; }
+.site-display-options input:checked + .lucide-heart { fill: currentColor; }
+.site-tag-group { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid var(--border); }
+.site-tag-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: var(--text-2); font-size: 13px; }
+.site-tag-heading > span:last-child { color: var(--text-3); font-size: 12px; }
+.site-tag-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.site-form .site-tag-options label { justify-content: flex-start; min-height: 34px; max-width: 100%; padding: 7px 10px; border-radius: 7px; }
+.site-tag-options label > span:last-child { overflow-wrap: anywhere; }
+.site-form .form-advanced { padding: 0; }
+.site-form .form-advanced summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 20px; list-style: none; color: var(--text); font-size: 14px; font-weight: 650; }
+.site-form .form-advanced summary::-webkit-details-marker { display: none; }
+.site-form .form-advanced summary > span { display: inline-flex; align-items: center; gap: 9px; }
+.site-form .form-advanced summary::after { content: ''; flex: none; width: 7px; height: 7px; margin-right: 3px; border-right: 1.5px solid var(--text-3); border-bottom: 1.5px solid var(--text-3); transform: rotate(45deg); }
+.site-form .form-advanced[open] summary::after { transform: rotate(225deg); }
+.site-form .form-advanced > .form-section { gap: 18px; margin: 0 20px 20px; padding: 18px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+.site-form .icon-field-row { gap: 14px; }
+.site-form .icon-actions { gap: 10px; }
+.site-form .icon-actions > button, .site-form .icon-actions > .file-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 8px 12px; white-space: nowrap; }
+.site-form .form-submit-footer { position: static; flex: none; margin: 0; padding: 16px 24px max(16px, env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px #00000004; }
+.site-form .form-submit-footer > button { min-height: 44px; }
+
+@media (max-width: 560px) {
+  .side-panel:has(.site-form) > header { padding: 18px 20px; }
+  .site-form-body { gap: 16px; padding: 18px 14px; }
+  .site-form .form-section { padding: 18px 16px; }
+  .site-form .form-advanced summary { padding: 18px 16px; }
+  .site-form .form-advanced > .form-section { margin: 0 16px 18px; padding: 18px 0 0; }
+  .site-form .form-grid-three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .site-form .form-grid-three > label:last-child { grid-column: 1 / -1; }
+  .site-form .form-submit-footer { padding-right: 20px; padding-left: 20px; }
+}
 
 :root[data-layout='directory'] .admin-shell { padding-left: 222px; }
 :root[data-layout='directory'] .admin-sidebar { width: 190px; background: var(--bg); }

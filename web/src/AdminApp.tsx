@@ -2388,102 +2388,120 @@ function SiteForm({
 
   return (
     <form className="admin-form site-form" onSubmit={onSubmit}>
-      <fieldset className="form-section">
-        <legend>{t('basicInformation')}</legend>
-        <label>
-          <span>{t('title')}</span>
-          <input value={draft.title} onChange={(event) => patch({ title: event.target.value })} required />
-        </label>
-        <label>
-          <span>{t('defaultURL')}</span>
-          <input value={draft.default_url} onChange={(event) => patch({ default_url: event.target.value })} required />
-        </label>
-        <label>
-          <span>{t('lanURL')}</span>
-          <input value={draft.lan_url} onChange={(event) => patch({ lan_url: event.target.value })} />
-        </label>
-        <label className="site-description-field">
-          <span>{t('description')}</span>
-          <textarea value={draft.description} onChange={(event) => patch({ description: event.target.value })} rows={3} />
-        </label>
-      </fieldset>
-      <fieldset className="form-section">
-        <legend>{t('displayAndTags')}</legend>
-        <label>
-          <span>{t('openMethod')}</span>
-          <select value={draft.open_method} onChange={(event) => patch({ open_method: event.target.value })}>
-            <option value="new_window">{t('newWindow')}</option>
-            <option value="current_window">{t('currentWindow')}</option>
-          </select>
-        </label>
-        <label className="checkbox-line">
-          <input type="checkbox" checked={draft.is_enabled} onChange={(event) => patch({ is_enabled: event.target.checked })} />
-          <span>{t('siteEnabled')}</span>
-        </label>
-        <p className="field-hint">{t('siteEnabledHint')}</p>
-        <div className="checkbox-row">
-          <label>
-            <input type="checkbox" checked={draft.only_name} onChange={(event) => patch({ only_name: event.target.checked })} />
-            <span>{t('onlyName')}</span>
-          </label>
-          <label>
-            <input type="checkbox" checked={draft.is_favorite} onChange={(event) => patch({ is_favorite: event.target.checked })} />
-            <span>{t('favorite')}</span>
-          </label>
-        </div>
-        <div className="checkbox-list">
-          {tags.map((tag) => (
-            <label key={tag.id}>
-              <input type="checkbox" checked={draft.tag_ids.includes(tag.id)} onChange={() => toggleTag(tag.id)} />
-              <span>{tag.name}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <details className="form-advanced">
-        <summary>{t('iconAndAdvanced')}</summary>
-        <div className="form-section">
-          <div className="form-grid form-grid-three">
+      <div className="site-form-body">
+        <fieldset className="form-section">
+          <legend><Globe size={17} aria-hidden="true" />{t('basicInformation')}</legend>
+          <div className="site-section-fields">
             <label>
-              <span>{t('sort')}</span>
-              <input type="number" value={draft.sort_order} onChange={(event) => patch({ sort_order: Number(event.target.value) })} />
+              <span>{t('title')}</span>
+              <input value={draft.title} onChange={(event) => patch({ title: event.target.value })} required />
             </label>
             <label>
-              <span>{t('iconType')}</span>
-              <select value={draft.icon_type} onChange={(event) => patch({ icon_type: event.target.value })}>
-                <option value="text">{t('textIcon')}</option>
-                <option value="image">{t('imageIcon')}</option>
-                <option value="online">{t('onlineIcon')}</option>
+              <span>{t('defaultURL')}</span>
+              <input value={draft.default_url} onChange={(event) => patch({ default_url: event.target.value })} required />
+            </label>
+            <label>
+              <span>{t('lanURL')}</span>
+              <input value={draft.lan_url} onChange={(event) => patch({ lan_url: event.target.value })} />
+            </label>
+            <label className="site-description-field">
+              <span>{t('description')}</span>
+              <textarea value={draft.description} onChange={(event) => patch({ description: event.target.value })} rows={3} />
+            </label>
+          </div>
+        </fieldset>
+        <fieldset className="form-section">
+          <legend><Settings size={17} aria-hidden="true" />{t('displayAndTags')}</legend>
+          <div className="site-section-fields">
+            <label>
+              <span>{t('openMethod')}</span>
+              <select value={draft.open_method} onChange={(event) => patch({ open_method: event.target.value })}>
+                <option value="new_window">{t('newWindow')}</option>
+                <option value="current_window">{t('currentWindow')}</option>
               </select>
             </label>
-            <label>
-              <span>{t('backgroundColor')}</span>
-              <input value={draft.background_color} onChange={(event) => patch({ background_color: event.target.value })} />
+            <label className="site-enabled-control">
+              <span className="site-enabled-copy">
+                <span>{t('siteEnabled')}</span>
+                <span className="field-hint" id="site-enabled-hint">{t('siteEnabledHint')}</span>
+              </span>
+              <input type="checkbox" role="switch" aria-label={t('siteEnabled')} aria-describedby="site-enabled-hint" checked={draft.is_enabled} onChange={(event) => patch({ is_enabled: event.target.checked })} />
             </label>
-          </div>
-          <div className="form-grid icon-field-row">
-            <label>
-              <span>{t('iconValue')}</span>
-              <input value={draft.icon_value} onChange={(event) => patch({ icon_value: event.target.value })} />
-            </label>
-            <div className="icon-actions">
-              <button type="button" onClick={onFetchIcon} disabled={iconFetching || !draft.default_url.trim()}>
-                <RefreshCw className={iconFetching ? 'spin' : ''} size={17} aria-hidden="true" />
-                {iconFetching ? t('fetching') : t('fetchFromWebsite')}
-              </button>
-              <label className="file-button inline-file">
-                <Upload size={17} aria-hidden="true" />
-                {t('uploadIcon')}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/svg+xml,.svg"
-                  onChange={onIconUpload}
-                />
+            <div className="site-display-options">
+              <label>
+                <input type="checkbox" checked={draft.only_name} onChange={(event) => patch({ only_name: event.target.checked })} />
+                <span className="site-option-mark" aria-hidden="true"><Check size={12} /></span>
+                <span>{t('onlyName')}</span>
+              </label>
+              <label>
+                <input type="checkbox" checked={draft.is_favorite} onChange={(event) => patch({ is_favorite: event.target.checked })} />
+                <Heart size={16} aria-hidden="true" />
+                <span>{t('favorite')}</span>
               </label>
             </div>
+            <div className="site-tag-group" role="group" aria-label={t('tagsTab')}>
+              <div className="site-tag-heading">
+                <span>{t('tagsTab')}</span>
+                <span>{t('selectedTagsCount', { count: draft.tag_ids.length })}</span>
+              </div>
+              <div className="site-tag-options">
+                {tags.map((tag) => (
+                  <label key={tag.id}>
+                    <input type="checkbox" checked={draft.tag_ids.includes(tag.id)} onChange={() => toggleTag(tag.id)} />
+                    <span className="site-option-mark" aria-hidden="true"><Check size={12} /></span>
+                    <span>{tag.name}</span>
+                  </label>
+                ))}
+                {tags.length === 0 && <p className="field-hint">{t('noTags')}</p>}
+              </div>
+            </div>
           </div>
-        </div>
-      </details>
+        </fieldset>
+        <details className="form-advanced">
+          <summary><span><Settings size={17} aria-hidden="true" />{t('iconAndAdvanced')}</span></summary>
+          <div className="form-section">
+            <div className="form-grid form-grid-three">
+              <label>
+                <span>{t('sort')}</span>
+                <input type="number" value={draft.sort_order} onChange={(event) => patch({ sort_order: Number(event.target.value) })} />
+              </label>
+              <label>
+                <span>{t('iconType')}</span>
+                <select value={draft.icon_type} onChange={(event) => patch({ icon_type: event.target.value })}>
+                  <option value="text">{t('textIcon')}</option>
+                  <option value="image">{t('imageIcon')}</option>
+                  <option value="online">{t('onlineIcon')}</option>
+                </select>
+              </label>
+              <label>
+                <span>{t('backgroundColor')}</span>
+                <input value={draft.background_color} onChange={(event) => patch({ background_color: event.target.value })} />
+              </label>
+            </div>
+            <div className="form-grid icon-field-row">
+              <label>
+                <span>{t('iconValue')}</span>
+                <input value={draft.icon_value} onChange={(event) => patch({ icon_value: event.target.value })} />
+              </label>
+              <div className="icon-actions">
+                <button type="button" onClick={onFetchIcon} disabled={iconFetching || !draft.default_url.trim()}>
+                  <RefreshCw className={iconFetching ? 'spin' : ''} size={17} aria-hidden="true" />
+                  {iconFetching ? t('fetching') : t('fetchFromWebsite')}
+                </button>
+                <label className="file-button inline-file">
+                  <Upload size={17} aria-hidden="true" />
+                  {t('uploadIcon')}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/svg+xml,.svg"
+                    onChange={onIconUpload}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
       <div className="form-submit-footer">
         <button className="primary-button" type="submit" disabled={saving || iconFetching}>
           {saving ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
