@@ -11,6 +11,7 @@ import {
   GripVertical,
   Heart,
   KeyRound,
+  Loader2,
   LogIn,
   LogOut,
   MoreHorizontal,
@@ -99,10 +100,13 @@ const emptyTagForm: TagSaveReq = {
 export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void } = {}) {
   const { t } = usePreferences();
   const [checking, setChecking] = useState(true);
+  const [sessionCheckError, setSessionCheckError] = useState(false);
+  const [sessionCheckAttempt, setSessionCheckAttempt] = useState(0);
   const [authenticated, setAuthenticated] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
   const [tab, setTab] = useState<AdminTab>('sites');
   const [adminSearch, setAdminSearch] = useState('');
   const [siteTagFilterId, setSiteTagFilterId] = useState('all');
@@ -119,10 +123,19 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const [siteDraft, setSiteDraft] = useState<SiteSaveReq>(emptySiteForm);
   const [editingSiteId, setEditingSiteId] = useState('');
   const [sitePanelOpen, setSitePanelOpen] = useState(false);
+  const [savingSite, setSavingSite] = useState(false);
   const [iconFetching, setIconFetching] = useState(false);
   const [tagDraft, setTagDraft] = useState<TagSaveReq>(emptyTagForm);
   const [editingTagId, setEditingTagId] = useState('');
   const [tagPanelOpen, setTagPanelOpen] = useState(false);
+  const [savingTag, setSavingTag] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [restoringPassword, setRestoringPassword] = useState(false);
+  const savingSiteRef = useRef(false);
+  const savingTagRef = useRef(false);
+  const loggingInRef = useRef(false);
+  const changingPasswordRef = useRef(false);
+  const restoringPasswordRef = useRef(false);
   const [siteOrder, setSiteOrder] = useState<Record<string, number>>({});
   const [tagOrder, setTagOrder] = useState<Record<string, number>>({});
   const [draggingSiteId, setDraggingSiteId] = useState('');
@@ -147,6 +160,8 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   useEffect(() => {
     let cancelled = false;
     async function checkSession() {
+      setChecking(true);
+      setSessionCheckError(false);
       try {
         const restoreStatus = await getRestoreStatus();
         if (!cancelled && restoreStatus.enabled && restoreStatus.mode === 'admin-password') {
@@ -166,9 +181,12 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
         if (!cancelled) {
           setAuthenticated(true);
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
           setAuthenticated(false);
+          if (!isUnauthorizedError(error)) {
+            setSessionCheckError(true);
+          }
         }
       } finally {
         if (!cancelled) {
@@ -180,7 +198,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sessionCheckAttempt]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -302,6 +320,11 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
 
   async function submitLogin(event: FormEvent) {
     event.preventDefault();
+    if (loggingInRef.current) {
+      return;
+    }
+    loggingInRef.current = true;
+    setLoggingIn(true);
     setLoginError('');
     try {
       await loginAdmin(password);
@@ -309,6 +332,9 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       setPassword('');
     } catch {
       setLoginError(t('loginFailed'));
+    } finally {
+      loggingInRef.current = false;
+      setLoggingIn(false);
     }
   }
 
@@ -350,6 +376,11 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
 
   async function submitSite(event: FormEvent) {
     event.preventDefault();
+    if (savingSiteRef.current) {
+      return;
+    }
+    savingSiteRef.current = true;
+    setSavingSite(true);
     try {
       if (editingSiteId) {
         await updateSite(editingSiteId, siteDraft);
@@ -362,8 +393,11 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       await refreshData();
     } catch (error) {
       if (!handleAdminError(error)) {
-        throw error;
+        setNotice(error instanceof Error && error.message ? error.message : t('siteSaveFailed'));
       }
+    } finally {
+      savingSiteRef.current = false;
+      setSavingSite(false);
     }
   }
 
@@ -463,6 +497,11 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
 
   async function submitTag(event: FormEvent) {
     event.preventDefault();
+    if (savingTagRef.current) {
+      return;
+    }
+    savingTagRef.current = true;
+    setSavingTag(true);
     try {
       if (editingTagId) {
         await updateTag(editingTagId, tagDraft);
@@ -475,8 +514,11 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       await refreshData();
     } catch (error) {
       if (!handleAdminError(error)) {
-        throw error;
+        setNotice(error instanceof Error && error.message ? error.message : t('tagSaveFailed'));
       }
+    } finally {
+      savingTagRef.current = false;
+      setSavingTag(false);
     }
   }
 
@@ -784,23 +826,34 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
 
   async function submitPassword(event: FormEvent) {
     event.preventDefault();
+    if (changingPasswordRef.current) {
+      return;
+    }
     if (passwordForm.next !== passwordForm.confirm) {
       setNotice(t('passwordMismatch'));
       return;
     }
+    changingPasswordRef.current = true;
+    setChangingPassword(true);
     try {
       await changeAdminPassword(passwordForm.current, passwordForm.next);
       setPasswordForm({ current: '', next: '', confirm: '' });
       setNotice(t('passwordChanged'));
     } catch (error) {
       if (!handleAdminError(error)) {
-        throw error;
+        setNotice(error instanceof Error && error.message ? error.message : t('loginFailed'));
       }
+    } finally {
+      changingPasswordRef.current = false;
+      setChangingPassword(false);
     }
   }
 
   async function submitRestorePassword(event: FormEvent) {
     event.preventDefault();
+    if (restoringPasswordRef.current) {
+      return;
+    }
     setLoginError('');
     setRestoreNotice('');
     if (restoreForm.next.length < 8) {
@@ -812,12 +865,17 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       return;
     }
 
+    restoringPasswordRef.current = true;
+    setRestoringPassword(true);
     try {
       await restoreAdminPassword(restoreForm.token, restoreForm.next);
       setRestoreForm({ token: '', next: '', confirm: '' });
       setRestoreNotice(t('restoreSuccess'));
     } catch {
       setLoginError(t('restoreTokenInvalid'));
+    } finally {
+      restoringPasswordRef.current = false;
+      setRestoringPassword(false);
     }
   }
 
@@ -892,6 +950,39 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     return <AdminState text={t('checkingSession')} />;
   }
 
+  if (sessionCheckError) {
+    return (
+      <main className="admin-login">
+        <div className="login-panel">
+          <div className="auth-preferences">
+            <PreferenceControls />
+          </div>
+          <div className="login-mark">
+            <Shield size={26} aria-hidden="true" />
+          </div>
+          <h1>{t('adminLogin')}</h1>
+          <p className="form-error">{t('sessionCheckFailed')}</p>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => setSessionCheckAttempt((count) => count + 1)}
+          >
+            <RefreshCw size={17} aria-hidden="true" />
+            {t('retry')}
+          </button>
+          <button
+            className="secondary-btn"
+            type="button"
+            onClick={() => (onNavigate ? onNavigate('/') : (window.location.href = '/'))}
+          >
+            {t('visitorHome')}
+          </button>
+        </div>
+        <VersionBadge />
+      </main>
+    );
+  }
+
   if (restoreMode) {
     return (
       <main className="admin-login">
@@ -934,9 +1025,9 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
           </label>
           {loginError && <p className="form-error">{loginError}</p>}
           {restoreNotice && <p className="form-success">{restoreNotice}</p>}
-          <button className="primary-button" type="submit">
-            <Save size={17} aria-hidden="true" />
-            {t('resetPassword')}
+          <button className="primary-button" type="submit" disabled={restoringPassword}>
+            {restoringPassword ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
+            {restoringPassword ? t('saving') : t('resetPassword')}
           </button>
           <p className="form-note">{t('restoreDoneNote')}</p>
         </form>
@@ -967,9 +1058,9 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
             />
           </label>
           {loginError && <p className="form-error">{loginError}</p>}
-          <button className="primary-button" type="submit">
-            <LogIn size={17} aria-hidden="true" />
-            {t('login')}
+          <button className="primary-button" type="submit" disabled={loggingIn}>
+            {loggingIn ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <LogIn size={17} aria-hidden="true" />}
+            {loggingIn ? t('checkingSession') : t('login')}
           </button>
         </form>
         <VersionBadge />
@@ -1618,9 +1709,9 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
                 required
               />
             </label>
-            <button className="primary-button" type="submit">
-              <Save size={17} aria-hidden="true" />
-              {t('changePassword')}
+            <button className="primary-button" type="submit" disabled={changingPassword}>
+              {changingPassword ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
+              {changingPassword ? t('saving') : t('changePassword')}
             </button>
           </form>
           <aside className="security-tips">
@@ -1642,7 +1733,15 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       )}
 
       {sitePanelOpen && (
-        <SidePanel title={editingSiteId ? t('editSiteTitle') : t('newSiteTitle')} onClose={() => setSitePanelOpen(false)}>
+        <SidePanel
+          title={editingSiteId ? t('editSiteTitle') : t('newSiteTitle')}
+          closeDisabled={savingSite}
+          onClose={() => {
+            if (!savingSite) {
+              setSitePanelOpen(false);
+            }
+          }}
+        >
           <SiteForm
             draft={siteDraft}
             tags={tags}
@@ -1651,13 +1750,22 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
             onIconUpload={handleIconUpload}
             onFetchIcon={handleFetchIcon}
             iconFetching={iconFetching}
+            saving={savingSite}
           />
         </SidePanel>
       )}
 
       {tagPanelOpen && (
-        <SidePanel title={editingTagId ? t('editTagTitle') : t('newTagTitle')} onClose={() => setTagPanelOpen(false)}>
-          <TagForm draft={tagDraft} onChange={setTagDraft} onSubmit={submitTag} />
+        <SidePanel
+          title={editingTagId ? t('editTagTitle') : t('newTagTitle')}
+          closeDisabled={savingTag}
+          onClose={() => {
+            if (!savingTag) {
+              setTagPanelOpen(false);
+            }
+          }}
+        >
+          <TagForm draft={tagDraft} onChange={setTagDraft} onSubmit={submitTag} saving={savingTag} />
         </SidePanel>
       )}
 
@@ -2184,7 +2292,17 @@ function BatchTagBar({
   );
 }
 
-function SidePanel({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+function SidePanel({
+  title,
+  children,
+  closeDisabled = false,
+  onClose
+}: {
+  title: string;
+  children: ReactNode;
+  closeDisabled?: boolean;
+  onClose: () => void;
+}) {
   const { t } = usePreferences();
   useBodyScrollLock(true);
 
@@ -2193,7 +2311,7 @@ function SidePanel({ title, children, onClose }: { title: string; children: Reac
       <aside className="side-panel">
         <header>
           <h2>{title}</h2>
-          <button type="button" onClick={onClose} title={t('close')}>
+          <button type="button" onClick={onClose} disabled={closeDisabled} title={t('close')}>
             <X size={18} aria-hidden="true" />
           </button>
         </header>
@@ -2210,7 +2328,8 @@ function SiteForm({
   onSubmit,
   onIconUpload,
   onFetchIcon,
-  iconFetching
+  iconFetching,
+  saving
 }: {
   draft: SiteSaveReq;
   tags: Tag[];
@@ -2219,6 +2338,7 @@ function SiteForm({
   onIconUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onFetchIcon: () => void;
   iconFetching: boolean;
+  saving: boolean;
 }) {
   const { t } = usePreferences();
 
@@ -2314,9 +2434,9 @@ function SiteForm({
           </label>
         ))}
       </div>
-      <button className="primary-button" type="submit">
-        <Save size={17} aria-hidden="true" />
-        {t('saveSite')}
+      <button className="primary-button" type="submit" disabled={saving || iconFetching}>
+        {saving ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
+        {saving ? t('saving') : t('saveSite')}
       </button>
     </form>
   );
@@ -2325,11 +2445,13 @@ function SiteForm({
 function TagForm({
   draft,
   onChange,
-  onSubmit
+  onSubmit,
+  saving
 }: {
   draft: TagSaveReq;
   onChange: (draft: TagSaveReq) => void;
   onSubmit: (event: FormEvent) => void;
+  saving: boolean;
 }) {
   const { t } = usePreferences();
 
@@ -2361,9 +2483,9 @@ function TagForm({
         <input type="checkbox" checked={draft.is_enabled} onChange={(event) => patch({ is_enabled: event.target.checked })} />
         <span>{t('enabled')}</span>
       </label>
-      <button className="primary-button" type="submit">
-        <Save size={17} aria-hidden="true" />
-        {t('saveTag')}
+      <button className="primary-button" type="submit" disabled={saving}>
+        {saving ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
+        {saving ? t('saving') : t('saveTag')}
       </button>
     </form>
   );

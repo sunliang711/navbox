@@ -51,6 +51,15 @@ func TestConfigValidateSecurityMasterKey(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "master_key")
 }
 
+func TestConfigValidateRejectsNonPositiveSessionTTL(t *testing.T) {
+	cfg := testConfig()
+	cfg.Auth.SessionTTL = "0s"
+	require.ErrorContains(t, cfg.Validate(), "session_ttl")
+
+	cfg.Auth.SessionTTL = "-1h"
+	require.ErrorContains(t, cfg.Validate(), "session_ttl")
+}
+
 func testConfig() Config {
 	return Config{
 		App: AppConfig{

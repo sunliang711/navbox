@@ -50,6 +50,7 @@ func NewRouter(
 	public := api.Group("", middleware.TouchAdminSession(cfg, authService))
 	siteHandler.RegisterPublicRoutes(public)
 	tagHandler.RegisterPublicRoutes(public)
+	restoreHandler.RegisterStatusRoute(api)
 	authHandler.RegisterRoutes(api, middleware.AdminSession(cfg, authService))
 
 	admin := api.Group("/admin", middleware.AdminSession(cfg, authService))
@@ -87,6 +88,8 @@ func registerUploadRoutes(router *gin.Engine, cfg config.Config) {
 func registerWebRoutes(router *gin.Engine, assets web.Assets) {
 	fileServer := http.FileServer(assets.FS)
 	serveIndex := func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store, no-cache, must-revalidate")
+		c.Header("Pragma", "no-cache")
 		c.Request.URL.Path = "/"
 		fileServer.ServeHTTP(c.Writer, c.Request)
 	}

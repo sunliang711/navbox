@@ -167,8 +167,10 @@ func (c Config) Validate() error {
 	if _, err := time.ParseDuration(c.Database.ConnectTimeout); err != nil {
 		return fmt.Errorf("invalid database connect_timeout: %w", err)
 	}
-	if _, err := time.ParseDuration(c.Auth.SessionTTL); err != nil {
+	if ttl, err := time.ParseDuration(c.Auth.SessionTTL); err != nil {
 		return fmt.Errorf("invalid auth session_ttl: %w", err)
+	} else if ttl <= 0 {
+		return errors.New("auth session_ttl must be greater than zero")
 	}
 	if c.Auth.CookieName == "" {
 		return errors.New("auth cookie_name is required")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -22,6 +23,8 @@ const (
 	defaultOpenMethod     = "new_window"
 	defaultIconType       = "text"
 )
+
+var autoFetchSiteIconTimeout = 2 * time.Second
 
 type SiteService interface {
 	ListSites(ctx context.Context, query dto.SiteListQuery) ([]dto.SiteResp, error)
@@ -100,7 +103,10 @@ func (s *siteService) CreateSite(ctx context.Context, req dto.SiteSaveReq) (*dto
 
 	site := siteFromReq(req)
 	if shouldAutoFetchSiteIcon(site) {
-		if icon, err := s.iconService.FetchIcon(ctx, site.DefaultURL); err == nil {
+		fetchCtx, cancel := context.WithTimeout(ctx, autoFetchSiteIconTimeout)
+		icon, err := s.iconService.FetchIcon(fetchCtx, site.DefaultURL)
+		cancel()
+		if err == nil {
 			site.IconType = "image"
 			site.IconValue = icon.URL
 		}

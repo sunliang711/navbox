@@ -14,6 +14,7 @@ import (
 
 	"navbox/internal/config"
 	"navbox/internal/dto"
+	"navbox/internal/middleware"
 	"navbox/internal/response"
 	"navbox/internal/service"
 )
@@ -50,7 +51,12 @@ func (h *RestoreHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	restore.POST("/admin-password", h.ResetAdminPassword)
 }
 
+func (h *RestoreHandler) RegisterStatusRoute(rg *gin.RouterGroup) {
+	rg.GET("/restore/status", h.GetStatus)
+}
+
 func (h *RestoreHandler) GetStatus(c *gin.Context) {
+	middleware.SetNoCacheHeaders(c)
 	response.OK(c, dto.RestoreStatusResp{
 		Enabled: h.cfg.Restore.Enabled(),
 		Mode:    h.cfg.Restore.Mode,
