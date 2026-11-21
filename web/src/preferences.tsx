@@ -1,4 +1,4 @@
-import { Languages, LayoutGrid, Moon, Sun } from 'lucide-react';
+import { Languages, LayoutGrid, List, Moon, Sun } from 'lucide-react';
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
 export type ThemeMode = 'light' | 'dark';
@@ -31,7 +31,7 @@ const zh = {
   preferLan: '内网优先',
   preview: '预览',
   admin: '管理后台',
-  visitorHome: '游客首页',
+  visitorHome: '首页',
   tagFilter: 'Tag 筛选',
   multiSelectTags: '叠加筛选',
   tagMatchMode: 'Tag 匹配方式',
@@ -939,16 +939,23 @@ export function PreferenceControls() {
   const { language, layout, setLanguage, setLayout, setTheme, t, theme } = usePreferences();
   const nextTheme = theme === 'light' ? 'dark' : 'light';
   const nextThemeLabel = nextTheme === 'dark' ? t('darkMode') : t('lightMode');
+  const nextLayout = layout === 'workbench' ? 'directory' : 'workbench';
+  const nextLayoutLabel = nextLayout === 'directory' ? t('directoryLayout') : t('workbenchLayout');
 
   return (
     <div className="preference-controls">
-      <label className="layout-preference" title={t('layoutStyle')}>
-        <LayoutGrid size={15} aria-hidden="true" />
-        <select value={layout} onChange={(event) => setLayout(event.target.value as LayoutMode)} aria-label={t('layoutStyle')}>
-          <option value="workbench">{t('workbenchLayout')}</option>
-          <option value="directory">{t('directoryLayout')}</option>
-        </select>
-      </label>
+      <div className="preference-group" role="group" aria-label={t('layoutStyle')}>
+        <button
+          className="preference-button layout-preference-button"
+          type="button"
+          onClick={() => setLayout(nextLayout)}
+          title={nextLayoutLabel}
+          aria-label={nextLayoutLabel}
+        >
+          {nextLayout === 'directory' ? <List size={15} aria-hidden="true" /> : <LayoutGrid size={15} aria-hidden="true" />}
+          <span>{nextLayoutLabel}</span>
+        </button>
+      </div>
       <div className="preference-group" role="group" aria-label={`${t('lightMode')} / ${t('darkMode')}`}>
         <button
           className="preference-button theme-preference-button"
