@@ -1121,36 +1121,38 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
         onLogout={handleLogout}
       />
 
-      <section className="admin-stat-grid" aria-label={t('adminStats', { sites: sites.length, tags: tags.length })}>
-        <div className="admin-stat-card">
-          <span className="stat-icon"><Globe size={18} aria-hidden="true" /></span>
-          <div className="stat-copy">
-            <strong>{sites.length}</strong>
-            <span>{t('totalSites')}</span>
+      {(tab === 'sites' || tab === 'tags') && (
+        <section className="admin-stat-grid" aria-label={t('adminStats', { sites: sites.length, tags: tags.length })}>
+          <div className="admin-stat-card">
+            <span className="stat-icon"><Globe size={18} aria-hidden="true" /></span>
+            <div className="stat-copy">
+              <strong>{sites.length}</strong>
+              <span>{t('totalSites')}</span>
+            </div>
           </div>
-        </div>
-        <div className="admin-stat-card">
-          <span className="stat-icon stat-icon-tags"><Tags size={18} aria-hidden="true" /></span>
-          <div className="stat-copy">
-            <strong>{tags.length}</strong>
-            <span>{t('totalTags')}</span>
+          <div className="admin-stat-card">
+            <span className="stat-icon stat-icon-tags"><Tags size={18} aria-hidden="true" /></span>
+            <div className="stat-copy">
+              <strong>{tags.length}</strong>
+              <span>{t('totalTags')}</span>
+            </div>
           </div>
-        </div>
-        <div className="admin-stat-card">
-          <span className="stat-icon stat-icon-favorite"><Heart size={18} aria-hidden="true" /></span>
-          <div className="stat-copy">
-            <strong>{sites.filter((site) => site.is_favorite).length}</strong>
-            <span>{t('favoriteSites')}</span>
+          <div className="admin-stat-card">
+            <span className="stat-icon stat-icon-favorite"><Heart size={18} aria-hidden="true" /></span>
+            <div className="stat-copy">
+              <strong>{sites.filter((site) => site.is_favorite).length}</strong>
+              <span>{t('favoriteSites')}</span>
+            </div>
           </div>
-        </div>
-        <div className="admin-stat-card">
-          <span className="stat-icon stat-icon-untagged"><CircleDashed size={18} aria-hidden="true" /></span>
-          <div className="stat-copy">
-            <strong>{sites.filter((site) => site.tags.length === 0).length}</strong>
-            <span>{t('uncategorizedSites')}</span>
+          <div className="admin-stat-card">
+            <span className="stat-icon stat-icon-untagged"><CircleDashed size={18} aria-hidden="true" /></span>
+            <div className="stat-copy">
+              <strong>{sites.filter((site) => site.tags.length === 0).length}</strong>
+              <span>{t('uncategorizedSites')}</span>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {notice && <div className="toast">{notice}</div>}
       {loading && <AdminState text={t('refreshing')} />}
@@ -1163,22 +1165,18 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
                 <Plus size={17} aria-hidden="true" />
                 {t('newSite')}
               </button>
-              <button type="button" onClick={() => setSiteSortMode(true)} disabled={sites.length < 2}>
+              <button className="desktop-only" type="button" onClick={() => setSiteSortMode(true)} disabled={sites.length < 2}>
                 <ArrowUpDown size={17} aria-hidden="true" />
                 {t('sortSitesBtn')}
-              </button>
-              <button className="desktop-only" type="button" onClick={saveSiteOrder}>
-                <Save size={17} aria-hidden="true" />
-                {t('saveOrder')}
               </button>
               <button className="mobile-only mobile-more-action" type="button" onClick={() => setMobileSiteActionsOpen(true)}>
                 <MoreHorizontal size={17} aria-hidden="true" />
                 {t('more')}
               </button>
-              <button className="desktop-only" type="button" onClick={handleBatchDelete} disabled={selectedSiteIds.length === 0}>
+              {selectedSiteIds.length > 0 && <button className="desktop-only" type="button" onClick={handleBatchDelete}>
                 <Trash2 size={17} aria-hidden="true" />
                 {t('batchDelete')}
-              </button>
+              </button>}
             </div>
           )}
 
@@ -1249,16 +1247,16 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
               ) : (
                 <>
                   <div className="admin-table-wrap">
-                    <table className="admin-table">
+                    <table className="admin-table site-management-table">
                       <thead>
                         <tr>
-                          <th>{t('drag')}</th>
+                          <th className="drag-cell">{t('drag')}</th>
                           <th>{t('select')}</th>
                           <th>{t('site')}</th>
                           <th>Tag</th>
                           <th>{t('openMethod')}</th>
                           <th>{t('favoriteColumn')}</th>
-                          <th>{t('sort')}</th>
+                          <th className="sort-cell">{t('sort')}</th>
                           <th>{t('actions')}</th>
                         </tr>
                       </thead>
@@ -2305,10 +2303,36 @@ function SidePanel({
 }) {
   const { t } = usePreferences();
   useBodyScrollLock(true);
+  const panelRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panelRef.current?.focus();
+    return () => previousFocus?.focus();
+  }, []);
 
   return (
     <div className="panel-backdrop">
-      <aside className="side-panel">
+      <aside className="side-panel" ref={panelRef} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onKeyDown={(event) => {
+        if (event.key === 'Escape' && !closeDisabled) {
+          event.preventDefault();
+          onClose();
+        }
+        if (event.key === 'Tab') {
+          // 将键盘焦点留在抽屉中，避免误操作被遮挡的列表。
+          const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button, input, select, textarea, summary, [href], [tabindex]'))
+            .filter((element) => !element.matches(':disabled') && element.tabIndex >= 0 && element.getClientRects().length > 0);
+          const first = controls[0];
+          const last = controls[controls.length - 1];
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+            event.preventDefault();
+            last?.focus();
+          } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) {
+            event.preventDefault();
+            first?.focus();
+          }
+        }
+      }}>
         <header>
           <h2>{title}</h2>
           <button type="button" onClick={onClose} disabled={closeDisabled} title={t('close')}>
@@ -2354,90 +2378,103 @@ function SiteForm({
 
   return (
     <form className="admin-form site-form" onSubmit={onSubmit}>
-      <label>
-        <span>{t('title')}</span>
-        <input value={draft.title} onChange={(event) => patch({ title: event.target.value })} required />
-      </label>
-      <label>
-        <span>{t('defaultURL')}</span>
-        <input value={draft.default_url} onChange={(event) => patch({ default_url: event.target.value })} required />
-      </label>
-      <label>
-        <span>{t('lanURL')}</span>
-        <input value={draft.lan_url} onChange={(event) => patch({ lan_url: event.target.value })} />
-      </label>
-      <label>
-        <span>{t('openMethod')}</span>
-        <select value={draft.open_method} onChange={(event) => patch({ open_method: event.target.value })}>
-          <option value="new_window">{t('newWindow')}</option>
-          <option value="current_window">{t('currentWindow')}</option>
-        </select>
-      </label>
-      <label className="site-description-field">
-        <span>{t('description')}</span>
-        <textarea value={draft.description} onChange={(event) => patch({ description: event.target.value })} rows={3} />
-      </label>
-      <div className="form-grid form-grid-three">
+      <fieldset className="form-section">
+        <legend>{t('basicInformation')}</legend>
         <label>
-          <span>{t('sort')}</span>
-          <input type="number" value={draft.sort_order} onChange={(event) => patch({ sort_order: Number(event.target.value) })} />
+          <span>{t('title')}</span>
+          <input value={draft.title} onChange={(event) => patch({ title: event.target.value })} required />
         </label>
         <label>
-          <span>{t('iconType')}</span>
-          <select value={draft.icon_type} onChange={(event) => patch({ icon_type: event.target.value })}>
-            <option value="text">{t('textIcon')}</option>
-            <option value="image">{t('imageIcon')}</option>
-            <option value="online">{t('onlineIcon')}</option>
+          <span>{t('defaultURL')}</span>
+          <input value={draft.default_url} onChange={(event) => patch({ default_url: event.target.value })} required />
+        </label>
+        <label>
+          <span>{t('lanURL')}</span>
+          <input value={draft.lan_url} onChange={(event) => patch({ lan_url: event.target.value })} />
+        </label>
+        <label className="site-description-field">
+          <span>{t('description')}</span>
+          <textarea value={draft.description} onChange={(event) => patch({ description: event.target.value })} rows={3} />
+        </label>
+      </fieldset>
+      <fieldset className="form-section">
+        <legend>{t('displayAndTags')}</legend>
+        <label>
+          <span>{t('openMethod')}</span>
+          <select value={draft.open_method} onChange={(event) => patch({ open_method: event.target.value })}>
+            <option value="new_window">{t('newWindow')}</option>
+            <option value="current_window">{t('currentWindow')}</option>
           </select>
         </label>
-        <label>
-          <span>{t('backgroundColor')}</span>
-          <input value={draft.background_color} onChange={(event) => patch({ background_color: event.target.value })} />
-        </label>
-      </div>
-      <div className="form-grid icon-field-row">
-        <label>
-          <span>{t('iconValue')}</span>
-          <input value={draft.icon_value} onChange={(event) => patch({ icon_value: event.target.value })} />
-        </label>
-        <div className="icon-actions">
-          <button type="button" onClick={onFetchIcon} disabled={iconFetching || !draft.default_url.trim()}>
-            <RefreshCw className={iconFetching ? 'spin' : ''} size={17} aria-hidden="true" />
-            {iconFetching ? t('fetching') : t('fetchFromWebsite')}
-          </button>
-          <label className="file-button inline-file">
-            <Upload size={17} aria-hidden="true" />
-            {t('uploadIcon')}
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/svg+xml,.svg"
-              onChange={onIconUpload}
-            />
+        <div className="checkbox-row">
+          <label>
+            <input type="checkbox" checked={draft.only_name} onChange={(event) => patch({ only_name: event.target.checked })} />
+            <span>{t('onlyName')}</span>
+          </label>
+          <label>
+            <input type="checkbox" checked={draft.is_favorite} onChange={(event) => patch({ is_favorite: event.target.checked })} />
+            <span>{t('favorite')}</span>
           </label>
         </div>
+        <div className="checkbox-list">
+          {tags.map((tag) => (
+            <label key={tag.id}>
+              <input type="checkbox" checked={draft.tag_ids.includes(tag.id)} onChange={() => toggleTag(tag.id)} />
+              <span>{tag.name}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <details className="form-advanced">
+        <summary>{t('iconAndAdvanced')}</summary>
+        <div className="form-section">
+          <div className="form-grid form-grid-three">
+            <label>
+              <span>{t('sort')}</span>
+              <input type="number" value={draft.sort_order} onChange={(event) => patch({ sort_order: Number(event.target.value) })} />
+            </label>
+            <label>
+              <span>{t('iconType')}</span>
+              <select value={draft.icon_type} onChange={(event) => patch({ icon_type: event.target.value })}>
+                <option value="text">{t('textIcon')}</option>
+                <option value="image">{t('imageIcon')}</option>
+                <option value="online">{t('onlineIcon')}</option>
+              </select>
+            </label>
+            <label>
+              <span>{t('backgroundColor')}</span>
+              <input value={draft.background_color} onChange={(event) => patch({ background_color: event.target.value })} />
+            </label>
+          </div>
+          <div className="form-grid icon-field-row">
+            <label>
+              <span>{t('iconValue')}</span>
+              <input value={draft.icon_value} onChange={(event) => patch({ icon_value: event.target.value })} />
+            </label>
+            <div className="icon-actions">
+              <button type="button" onClick={onFetchIcon} disabled={iconFetching || !draft.default_url.trim()}>
+                <RefreshCw className={iconFetching ? 'spin' : ''} size={17} aria-hidden="true" />
+                {iconFetching ? t('fetching') : t('fetchFromWebsite')}
+              </button>
+              <label className="file-button inline-file">
+                <Upload size={17} aria-hidden="true" />
+                {t('uploadIcon')}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/svg+xml,.svg"
+                  onChange={onIconUpload}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
+      <div className="form-submit-footer">
+        <button className="primary-button" type="submit" disabled={saving || iconFetching}>
+          {saving ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
+          {saving ? t('saving') : t('saveSite')}
+        </button>
       </div>
-      <div className="checkbox-row">
-        <label>
-          <input type="checkbox" checked={draft.only_name} onChange={(event) => patch({ only_name: event.target.checked })} />
-          <span>{t('onlyName')}</span>
-        </label>
-        <label>
-          <input type="checkbox" checked={draft.is_favorite} onChange={(event) => patch({ is_favorite: event.target.checked })} />
-          <span>{t('favorite')}</span>
-        </label>
-      </div>
-      <div className="checkbox-list">
-        {tags.map((tag) => (
-          <label key={tag.id}>
-            <input type="checkbox" checked={draft.tag_ids.includes(tag.id)} onChange={() => toggleTag(tag.id)} />
-            <span>{tag.name}</span>
-          </label>
-        ))}
-      </div>
-      <button className="primary-button" type="submit" disabled={saving || iconFetching}>
-        {saving ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
-        {saving ? t('saving') : t('saveSite')}
-      </button>
     </form>
   );
 }

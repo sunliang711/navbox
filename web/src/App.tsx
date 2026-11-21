@@ -4,6 +4,8 @@ import {
   Copy,
   ExternalLink,
   Heart,
+  History,
+  LayoutGrid,
   Loader2,
   MoreHorizontal,
   Search,
@@ -16,6 +18,7 @@ import { PreferenceControls, PreferencesProvider, usePreferences } from './prefe
 import { loadRecentSites, saveRecentSite } from './recent';
 import { VersionBadge } from './version';
 import './styles.css';
+import './layouts.css';
 import type { RecentSite, Site, Tag, TagMatchMode } from './types';
 
 type ViewMode = 'all' | 'favorite' | 'recent';
@@ -293,21 +296,6 @@ function VisitorApp({ onNavigate }: { onNavigate: (path: string) => void }) {
               </span>
               <span className="brand-name">Navbox</span>
             </a>
-            <div className="search-box">
-              <Search size={18} aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t('searchPlaceholder')}
-                aria-label={t('searchSites')}
-              />
-              {search && (
-                <button className="icon-button" type="button" onClick={() => setSearch('')} title={t('clearSearch')}>
-                  <X size={16} aria-hidden="true" />
-                </button>
-              )}
-            </div>
             <div
               className={settingsOpen ? 'toolbar-actions open' : 'toolbar-actions'}
               ref={toolbarMenuRef}
@@ -359,112 +347,146 @@ function VisitorApp({ onNavigate }: { onNavigate: (path: string) => void }) {
               )}
             </div>
           </div>
-
-          <div className="filter-bar">
-            <nav className="pill-nav" aria-label={t('tagFilter')}>
-              <button
-                className={view === 'all' && selectedTagIds.length === 0 ? 'filter-pill active' : 'filter-pill'}
-                type="button"
-                onClick={() => {
-                  setSelectedTagIds([]);
-                  setView('all');
-                  saveVisitorQueryState('all', [], tagMatch);
-                }}
-              >
-                {t('allTools')}
-              </button>
-              {tags.map((tag) => (
-                <button
-                  className={selectedTagSet.has(tag.id) ? 'filter-pill active' : 'filter-pill'}
-                  type="button"
-                  key={tag.id}
-                  onClick={() => toggleTag(tag.id)}
-                >
-                  {tag.name}
+        </header>
+        <div className="visitor-layout">
+          <section className="visitor-intro">
+            <div>
+              <span className="visitor-eyebrow">Navbox / {t('visitorHome')}</span>
+              <h1>{t('homeTitle')}</h1>
+              <p>{t('homeSubtitle')}</p>
+            </div>
+            <div className="search-box">
+              <Search size={18} aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('searchPlaceholder')}
+                aria-label={t('searchSites')}
+              />
+              {search && (
+                <button className="icon-button" type="button" onClick={() => setSearch('')} title={t('clearSearch')}>
+                  <X size={16} aria-hidden="true" />
                 </button>
-              ))}
-              <button
-                className={view === 'favorite' ? 'filter-pill active' : 'filter-pill'}
-                type="button"
-                onClick={() => switchView('favorite')}
-              >
+              )}
+            </div>
+          </section>
+          <aside className="visitor-navigation">
+            <nav className="visitor-view-nav" aria-label={t('browseViews')}>
+              <button className={view === 'all' ? 'active' : undefined} type="button" aria-pressed={view === 'all'} onClick={() => {
+                setSelectedTagIds([]);
+                switchView('all');
+              }}>
+                <LayoutGrid size={16} aria-hidden="true" />
+                {t('allSitesFilter')}
+              </button>
+              <button className={view === 'favorite' ? 'active' : undefined} type="button" aria-pressed={view === 'favorite'} onClick={() => switchView('favorite')}>
+                <Heart size={16} aria-hidden="true" />
                 {t('favoriteTools')}
               </button>
-              <button
-                className={view === 'recent' ? 'filter-pill active' : 'filter-pill'}
-                type="button"
-                onClick={() => switchView('recent')}
-              >
+              <button className={view === 'recent' ? 'active' : undefined} type="button" aria-pressed={view === 'recent'} onClick={() => switchView('recent')}>
+                <History size={16} aria-hidden="true" />
                 {t('recentVisits')}
               </button>
             </nav>
-            <label className={multiSelect ? 'filter-toggle active' : 'filter-toggle'}>
-              <span>{t('multiSelectTags')}</span>
-              <input type="checkbox" checked={multiSelect} onChange={toggleMultiSelect} />
-              <span className="toggle-track" aria-hidden="true">
-                <span className="toggle-thumb" />
-              </span>
-            </label>
-            {view === 'all' && selectedTagIds.length > 1 && (
-              <div className="tag-match-toggle" role="group" aria-label={t('tagMatchMode')}>
+            <div className="filter-bar">
+              <span className="visitor-navigation-label">{t('browseTags')}</span>
+              <nav className="pill-nav" aria-label={t('tagFilter')}>
                 <button
-                  className={tagMatch === 'all' ? 'active' : undefined}
+                  className={view === 'all' && selectedTagIds.length === 0 ? 'filter-pill active' : 'filter-pill'}
                   type="button"
-                  onClick={() => switchTagMatch('all')}
+                  aria-pressed={view === 'all' && selectedTagIds.length === 0}
+                  onClick={() => {
+                    setSelectedTagIds([]);
+                    setView('all');
+                    saveVisitorQueryState('all', [], tagMatch);
+                  }}
                 >
-                  {t('matchAllTags')}
+                  {t('allTags')}
                 </button>
-                <button
-                  className={tagMatch === 'any' ? 'active' : undefined}
-                  type="button"
-                  onClick={() => switchTagMatch('any')}
-                >
-                  {t('matchAnyTag')}
-                </button>
-              </div>
-            )}
-          </div>
-        </header>
+                {tags.map((tag) => (
+                  <button
+                    className={selectedTagSet.has(tag.id) ? 'filter-pill active' : 'filter-pill'}
+                    type="button"
+                    aria-pressed={selectedTagSet.has(tag.id)}
+                    key={tag.id}
+                    onClick={() => toggleTag(tag.id)}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </nav>
+              <label className={multiSelect ? 'filter-toggle active' : 'filter-toggle'}>
+                <span>{t('multiSelectTags')}</span>
+                <input type="checkbox" checked={multiSelect} onChange={toggleMultiSelect} />
+                <span className="toggle-track" aria-hidden="true">
+                  <span className="toggle-thumb" />
+                </span>
+              </label>
+              {view === 'all' && selectedTagIds.length > 1 && (
+                <div className="tag-match-toggle" role="group" aria-label={t('tagMatchMode')}>
+                  <button
+                    className={tagMatch === 'all' ? 'active' : undefined}
+                    type="button"
+                    onClick={() => switchTagMatch('all')}
+                  >
+                    {t('matchAllTags')}
+                  </button>
+                  <button
+                    className={tagMatch === 'any' ? 'active' : undefined}
+                    type="button"
+                    onClick={() => switchTagMatch('any')}
+                  >
+                    {t('matchAnyTag')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </aside>
 
-        <div className="visitor-section-head">
-          <h1>{currentTitle}</h1>
+          <section className="visitor-results">
+            <div className="visitor-section-head">
+              <h2>{currentTitle}</h2>
+              {!loading && !error && <span>{t('matchingSites', { count: displaySites.length })}</span>}
+            </div>
+
+            <section className="site-area" aria-live="polite">
+              {loading && (
+                <div className="state">
+                  <Loader2 className="spin" size={24} aria-hidden="true" />
+                  <span>{t('loading')}</span>
+                </div>
+              )}
+
+              {!loading && error && (
+                <div className="state error-state">
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {!loading && !error && displaySites.length === 0 && (
+                <div className="state">
+                  <span>{t('noMatchingSites')}</span>
+                </div>
+              )}
+
+              {!loading && !error && displaySites.length > 0 && (
+                <div className="site-grid">
+                  {displaySites.map((site) => (
+                    <SiteCard
+                      key={site.id}
+                      site={site}
+                      preferLan={preferLan}
+                      previewEnabled={previewEnabled}
+                      onCopyURL={copySiteURL}
+                      onOpen={openSite}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </section>
         </div>
-
-        <section className="site-area" aria-live="polite">
-          {loading && (
-            <div className="state">
-              <Loader2 className="spin" size={24} aria-hidden="true" />
-              <span>{t('loading')}</span>
-            </div>
-          )}
-
-          {!loading && error && (
-            <div className="state error-state">
-              <span>{error}</span>
-            </div>
-          )}
-
-          {!loading && !error && displaySites.length === 0 && (
-            <div className="state">
-              <span>{t('noMatchingSites')}</span>
-            </div>
-          )}
-
-          {!loading && !error && displaySites.length > 0 && (
-            <div className="site-grid">
-              {displaySites.map((site) => (
-                <SiteCard
-                  key={site.id}
-                  site={site}
-                  preferLan={preferLan}
-                  previewEnabled={previewEnabled}
-                  onCopyURL={copySiteURL}
-                  onOpen={openSite}
-                />
-              ))}
-            </div>
-          )}
-        </section>
       </section>
       <VersionBadge />
       {notice && <div className="toast">{notice}</div>}

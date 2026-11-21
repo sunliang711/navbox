@@ -1,13 +1,26 @@
-import { Languages, Moon, Sun } from 'lucide-react';
+import { Languages, LayoutGrid, Moon, Sun } from 'lucide-react';
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
 export type ThemeMode = 'light' | 'dark';
 export type LanguageMode = 'zh' | 'en';
+export type LayoutMode = 'workbench' | 'directory';
 
 const themeKey = 'navbox_theme';
 const languageKey = 'navbox_language';
+const layoutKey = 'navbox_layout';
 
 const zh = {
+  layoutStyle: '布局风格',
+  workbenchLayout: '清爽工作台',
+  directoryLayout: '紧凑目录',
+  homeTitle: '你的工具，触手可及。',
+  homeSubtitle: '日常所需的网站与服务，都在这里。',
+  browseViews: '浏览方式',
+  browseTags: '按 Tag 浏览',
+  matchingSites: '{{count}} 个网站',
+  basicInformation: '基本信息',
+  displayAndTags: '展示与分类',
+  iconAndAdvanced: '图标与高级设置',
   allTools: '全部',
   favoriteTools: '常用工具',
   recentVisits: '最近访问',
@@ -419,6 +432,17 @@ const zh = {
 export type TranslationKey = keyof typeof zh;
 
 const en: Record<TranslationKey, string> = {
+  layoutStyle: 'Layout style',
+  workbenchLayout: 'Calm workspace',
+  directoryLayout: 'Compact directory',
+  homeTitle: 'Your tools, within reach.',
+  homeSubtitle: 'Your everyday websites and services, all in one place.',
+  browseViews: 'Browse',
+  browseTags: 'Browse by tag',
+  matchingSites: '{{count}} sites',
+  basicInformation: 'Basic information',
+  displayAndTags: 'Display and tags',
+  iconAndAdvanced: 'Icons and advanced settings',
   allTools: 'All',
   favoriteTools: 'Favorites',
   recentVisits: 'Recent',
@@ -830,8 +854,10 @@ const en: Record<TranslationKey, string> = {
 type PreferencesContextValue = {
   theme: ThemeMode;
   language: LanguageMode;
+  layout: LayoutMode;
   setTheme: (theme: ThemeMode) => void;
   setLanguage: (language: LanguageMode) => void;
+  setLayout: (layout: LayoutMode) => void;
   t: (key: TranslationKey, values?: Record<string, string | number>) => string;
 };
 
@@ -840,6 +866,26 @@ const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => loadTheme());
   const [language, setLanguageState] = useState<LanguageMode>(() => loadLanguage());
+  const [layout, setLayoutState] = useState<LayoutMode>(() => loadLayout());
+
+  useEffect(() => {
+    document.documentElement.dataset.layout = layout;
+    try {
+      window.localStorage.setItem(layoutKey, layout);
+    } catch {
+      // localStorage 不可用时，首页和后台仍共享当前会话中的布局。
+    }
+  }, [layout]);
+
+  useEffect(() => {
+    function syncLayout(event: StorageEvent) {
+      if (event.key === layoutKey && event.storageArea === window.localStorage) {
+        setLayoutState(event.newValue === 'directory' ? 'directory' : 'workbench');
+      }
+    }
+    window.addEventListener('storage', syncLayout);
+    return () => window.removeEventListener('storage', syncLayout);
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -860,16 +906,23 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [language]);
 
-  const value = useMemo<PreferencesContextValue>(() => {
+  // 布局切换不改变翻译函数引用，避免触发页面的数据加载与筛选初始化。
+  const translate = useMemo(() => {
     const dictionary = language === 'zh' ? zh : en;
+    return (key: TranslationKey, values?: Record<string, string | number>) => interpolate(dictionary[key], values);
+  }, [language]);
+
+  const value = useMemo<PreferencesContextValue>(() => {
     return {
       theme,
       language,
+      layout,
       setTheme: setThemeState,
       setLanguage: setLanguageState,
-      t: (key, values) => interpolate(dictionary[key], values)
+      setLayout: setLayoutState,
+      t: translate
     };
-  }, [language, theme]);
+  }, [language, layout, theme, translate]);
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }
@@ -883,12 +936,19 @@ export function usePreferences(): PreferencesContextValue {
 }
 
 export function PreferenceControls() {
-  const { language, setLanguage, setTheme, t, theme } = usePreferences();
+  const { language, layout, setLanguage, setLayout, setTheme, t, theme } = usePreferences();
   const nextTheme = theme === 'light' ? 'dark' : 'light';
   const nextThemeLabel = nextTheme === 'dark' ? t('darkMode') : t('lightMode');
 
   return (
     <div className="preference-controls">
+      <label className="layout-preference" title={t('layoutStyle')}>
+        <LayoutGrid size={15} aria-hidden="true" />
+        <select value={layout} onChange={(event) => setLayout(event.target.value as LayoutMode)} aria-label={t('layoutStyle')}>
+          <option value="workbench">{t('workbenchLayout')}</option>
+          <option value="directory">{t('directoryLayout')}</option>
+        </select>
+      </label>
       <div className="preference-group" role="group" aria-label={`${t('lightMode')} / ${t('darkMode')}`}>
         <button
           className="preference-button theme-preference-button"
@@ -937,5 +997,13 @@ function loadLanguage(): LanguageMode {
     return value === 'en' ? 'en' : 'zh';
   } catch {
     return 'zh';
+  }
+}
+
+function loadLayout(): LayoutMode {
+  try {
+    return window.localStorage.getItem(layoutKey) === 'directory' ? 'directory' : 'workbench';
+  } catch {
+    return 'workbench';
   }
 }
