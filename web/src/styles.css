@@ -1066,6 +1066,8 @@ input[type='color'] {
   display: grid;
   gap: 2px;
   min-width: 210px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -1103,6 +1105,117 @@ input[type='color'] {
   height: 1px;
   margin: 4px 8px;
   background: var(--border);
+}
+
+.site-details-dialog {
+  width: min(560px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-4);
+}
+
+.site-details-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.site-details-dialog::backdrop {
+  background: rgba(7, 12, 22, 0.55);
+}
+
+.site-details-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.site-details-header h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.site-details-close {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+}
+
+.site-details-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px;
+}
+
+.site-details-body h3 {
+  margin: 0 0 12px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.site-details-body p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.site-details-body .site-details-empty {
+  color: var(--text-3);
+}
+
+.site-details-footer {
+  flex-shrink: 0;
+  padding: 16px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.site-details-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.site-details-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 9px 14px;
+}
+
+.site-details-actions button:not(.primary-button) {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.site-details-copy-error {
+  margin: 0 0 12px;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .site-preview {

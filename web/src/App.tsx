@@ -4,13 +4,14 @@ import {
   ExternalLink,
   Heart,
   History,
+  Info,
   LayoutGrid,
   Loader2,
   MoreHorizontal,
   Search,
   X
 } from 'lucide-react';
-import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type MouseEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { listSites, listTags } from './api';
 import { AdminApp } from './AdminApp';
 import { PreferenceControls, PreferencesProvider, usePreferences } from './preferences';
@@ -513,6 +514,7 @@ function SiteCard({
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const previewURL = getSiteURL(site, preferLan);
   const canPreview = previewEnabled && isPreviewableURL(previewURL);
@@ -554,18 +556,25 @@ function SiteCard({
       }
     }
 
+    function closeOnScroll(event: Event) {
+      if (event.target instanceof Node && menuRef.current?.contains(event.target)) {
+        return;
+      }
+      closeMenu();
+    }
+
     window.addEventListener('pointerdown', closeOnOutside, true);
     window.addEventListener('keydown', closeOnEscape);
-    window.addEventListener('scroll', closeMenu, true);
+    window.addEventListener('scroll', closeOnScroll, true);
     return () => {
       window.removeEventListener('pointerdown', closeOnOutside, true);
       window.removeEventListener('keydown', closeOnEscape);
-      window.removeEventListener('scroll', closeMenu, true);
+      window.removeEventListener('scroll', closeOnScroll, true);
     };
   }, [menuPosition]);
 
   function showSitePreview() {
-    if (!canPreview) {
+    if (!canPreview || showDetails || menuPosition) {
       return;
     }
     previewTimer.current = window.setTimeout(() => {
@@ -663,6 +672,15 @@ function SiteCard({
           style={{ left: menuPosition.x, top: menuPosition.y }}
           role="menu"
         >
+          <button type="button" role="menuitem" onClick={() => {
+            closeMenu();
+            hideSitePreview();
+            setShowDetails(true);
+          }}>
+            <Info size={15} aria-hidden="true" />
+            <span>{t('viewSiteDetails')}</span>
+          </button>
+          <div className="site-menu-separator" />
           <button type="button" role="menuitem" onClick={() => openWith('new_window')}>
             <ExternalLink size={15} aria-hidden="true" />
             <span>{t('openNewTab')}</span>
@@ -688,7 +706,10 @@ function SiteCard({
           )}
         </div>
       )}
-      {showPreview && (
+      {showDetails && (
+        <SiteDetailsDialog site={site} returnFocusTo={menuButtonRef.current} onClose={() => setShowDetails(false)} />
+      )}
+      {!showDetails && showPreview && (
         <div className="site-preview" aria-hidden="true">
           <iframe
             src={previewURL}
@@ -700,6 +721,110 @@ function SiteCard({
         </div>
       )}
     </div>
+  );
+}
+
+function SiteDetailsDialog({
+  site,
+  returnFocusTo,
+  onClose
+}: {
+  site: Site;
+  returnFocusTo: HTMLButtonElement | null;
+  onClose: () => void;
+}) {
+  const { t } = usePreferences();
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const hasDescription = site.description.trim() !== '';
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    // 原生模态弹窗负责隔离背景交互和约束键盘焦点。
+    dialog.showModal();
+    document.body.style.overflow = 'hidden';
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      returnFocusTo?.focus({ preventScroll: true });
+    };
+  }, [returnFocusTo]);
+
+  async function copyDescription(event: MouseEvent<HTMLButtonElement>) {
+    const button = event.currentTarget;
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+    try {
+      await copyText(site.description, dialog);
+      setCopyStatus('copied');
+    } catch {
+      setCopyStatus('error');
+    } finally {
+      button.focus({ preventScroll: true });
+    }
+  }
+
+  return (
+    <dialog
+      className="site-details-dialog"
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      onContextMenu={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (event.key !== 'Tab') {
+          return;
+        }
+        const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), [tabindex="0"]'));
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        // 在首尾控件之间循环，避免连续 Tab 后焦点离开阅读弹窗。
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }}
+    >
+      <header className="site-details-header">
+        <SiteIcon site={site} />
+        <h2 id={titleId}>{site.title}</h2>
+        <button className="icon-button site-details-close" type="button" onClick={onClose} aria-label={t('close')}>
+          <X size={19} aria-hidden="true" />
+        </button>
+      </header>
+      <div className="site-details-body" role="region" aria-label={t('description')} tabIndex={0}>
+        <h3>{t('description')}</h3>
+        <p className={hasDescription ? undefined : 'site-details-empty'}>{hasDescription ? site.description : t('noSiteDescription')}</p>
+      </div>
+      <footer className="site-details-footer">
+        {copyStatus === 'error' && <p className="site-details-copy-error" role="alert">{t('descriptionCopyFailed')}</p>}
+        <div className="site-details-actions">
+          <button type="button" onClick={copyDescription} disabled={!hasDescription} aria-live="polite">
+            <Copy size={16} aria-hidden="true" />
+            {t(copyStatus === 'copied' ? 'descriptionCopied' : 'copyDescription')}
+          </button>
+          <button className="primary-button" type="button" onClick={onClose}>{t('close')}</button>
+        </div>
+      </footer>
+    </dialog>
   );
 }
 
@@ -747,7 +872,7 @@ function isPreviewableURL(url: string): boolean {
 }
 
 const siteMenuWidth = 210;
-const siteMenuHeight = 232;
+const siteMenuHeight = 280;
 
 function normalizeOpenMethod(value: string): OpenMethod {
   return value === 'current_window' ? 'current_window' : 'new_window';
@@ -762,7 +887,7 @@ function clampMenuPosition(x: number, y: number): { x: number; y: number } {
   };
 }
 
-async function copyText(value: string) {
+async function copyText(value: string, container: HTMLElement = document.body) {
   if (navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(value);
@@ -776,13 +901,16 @@ async function copyText(value: string) {
   input.value = value;
   input.style.position = 'fixed';
   input.style.left = '-9999px';
-  document.body.appendChild(input);
+  // 弹窗内的复制节点也放在弹窗内，避免被模态焦点隔离拦截。
+  container.appendChild(input);
   try {
     input.focus();
     input.select();
-    document.execCommand('copy');
+    if (!document.execCommand('copy')) {
+      throw new Error('Copy command failed');
+    }
   } finally {
-    document.body.removeChild(input);
+    container.removeChild(input);
   }
 }
 
