@@ -1502,6 +1502,15 @@ input[type='color'] {
   gap: 8px;
 }
 
+.admin-header-actions .preference-button,
+.admin-header-actions .toolbar-icon-button,
+.mobile-admin-menu-trigger {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+}
+
 .mobile-admin-menu-trigger {
   display: none;
 }

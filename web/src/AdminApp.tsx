@@ -10,6 +10,7 @@ import {
   Globe,
   GripVertical,
   Heart,
+  Home,
   KeyRound,
   Loader2,
   LogIn,
@@ -957,7 +958,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       <main className="admin-login">
         <div className="login-panel">
           <div className="auth-preferences">
-            <PreferenceControls />
+            <PreferenceControls iconOnly />
           </div>
           <div className="login-mark">
             <Shield size={26} aria-hidden="true" />
@@ -990,7 +991,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       <main className="admin-login">
         <form className="login-panel restore-panel" onSubmit={submitRestorePassword}>
           <div className="auth-preferences">
-            <PreferenceControls />
+            <PreferenceControls iconOnly />
           </div>
           <div className="login-mark">
             <KeyRound size={26} aria-hidden="true" />
@@ -1043,7 +1044,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       <main className="admin-login">
         <form className="login-panel" onSubmit={submitLogin}>
           <div className="auth-preferences">
-            <PreferenceControls />
+            <PreferenceControls iconOnly />
           </div>
           <div className="login-mark">
             <Shield size={26} aria-hidden="true" />
@@ -1097,21 +1098,34 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
           <h1>{currentAdminTitle}</h1>
           <p>{t('adminSubtitle')}</p>
         </div>
-        <button className="mobile-admin-menu-trigger" type="button" onClick={() => setMobileAdminMenuOpen(true)} title={t('adminQuickMenu')}>
-          <MoreHorizontal size={19} aria-hidden="true" />
-          <span>{t('more')}</span>
+        <button
+          className="mobile-admin-menu-trigger toolbar-icon-button"
+          type="button"
+          onClick={() => setMobileAdminMenuOpen(true)}
+          title={t('adminQuickMenu')}
+          aria-label={t('adminQuickMenu')}
+        >
+          <MoreHorizontal size={18} aria-hidden="true" />
         </button>
         <div className="admin-header-actions desktop-admin-actions">
-          <PreferenceControls />
+          <PreferenceControls iconOnly />
           <button
+            className="toolbar-icon-button"
             type="button"
             onClick={() => (onNavigate ? onNavigate('/') : (window.location.href = '/'))}
+            title={t('visitorHome')}
+            aria-label={t('visitorHome')}
           >
-            {t('visitorHome')}
+            <Home size={15} aria-hidden="true" />
           </button>
-          <button type="button" onClick={handleLogout}>
-            <LogOut size={17} aria-hidden="true" />
-            {t('logout')}
+          <button
+            className="toolbar-icon-button"
+            type="button"
+            onClick={handleLogout}
+            title={t('logout')}
+            aria-label={t('logout')}
+          >
+            <LogOut size={15} aria-hidden="true" />
           </button>
         </div>
       </header>
