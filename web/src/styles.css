@@ -612,6 +612,12 @@ input[type='color'] {
   color: var(--accent);
 }
 
+.preference-controls.icon-only .preference-button {
+  width: 34px;
+  padding: 0;
+}
+
+.toolbar-icon-button,
 .toolbar-menu-button {
   display: inline-flex;
   align-items: center;
@@ -623,10 +629,12 @@ input[type='color'] {
   background: var(--surface);
   color: var(--text-2);
   padding: 0;
+  text-decoration: none;
   box-shadow: var(--shadow-1);
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
+.toolbar-icon-button:hover,
 .toolbar-menu-button:hover,
 .toolbar-actions.open .toolbar-menu-button {
   border-color: var(--border-strong);

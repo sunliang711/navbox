@@ -951,15 +951,16 @@ export function usePreferences(): PreferencesContextValue {
   return context;
 }
 
-export function PreferenceControls() {
+export function PreferenceControls({ iconOnly = false }: { iconOnly?: boolean }) {
   const { language, layout, setLanguage, setLayout, setTheme, t, theme } = usePreferences();
   const nextTheme = theme === 'light' ? 'dark' : 'light';
   const nextThemeLabel = nextTheme === 'dark' ? t('darkMode') : t('lightMode');
   const nextLayout = layout === 'workbench' ? 'directory' : 'workbench';
   const nextLayoutLabel = nextLayout === 'directory' ? t('directoryLayout') : t('workbenchLayout');
+  const languageLabel = `${t('language')}: ${language === 'zh' ? '中文' : 'EN'}`;
 
   return (
-    <div className="preference-controls">
+    <div className={iconOnly ? 'preference-controls icon-only' : 'preference-controls'}>
       <div className="preference-group" role="group" aria-label={t('layoutStyle')}>
         <button
           className="preference-button layout-preference-button"
@@ -969,7 +970,7 @@ export function PreferenceControls() {
           aria-label={nextLayoutLabel}
         >
           {nextLayout === 'directory' ? <List size={15} aria-hidden="true" /> : <LayoutGrid size={15} aria-hidden="true" />}
-          <span>{nextLayoutLabel}</span>
+          {!iconOnly && <span>{nextLayoutLabel}</span>}
         </button>
       </div>
       <div className="preference-group" role="group" aria-label={`${t('lightMode')} / ${t('darkMode')}`}>
@@ -981,7 +982,7 @@ export function PreferenceControls() {
           aria-label={nextThemeLabel}
         >
           {theme === 'light' ? <Moon size={15} aria-hidden="true" /> : <Sun size={15} aria-hidden="true" />}
-          <span>{nextThemeLabel}</span>
+          {!iconOnly && <span>{nextThemeLabel}</span>}
         </button>
       </div>
       <div className="preference-group" role="group" aria-label={t('language')}>
@@ -989,10 +990,11 @@ export function PreferenceControls() {
           className={language === 'zh' ? 'preference-button active' : 'preference-button'}
           type="button"
           onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-          title={t('language')}
+          title={languageLabel}
+          aria-label={languageLabel}
         >
           <Languages size={15} aria-hidden="true" />
-          <span>{language === 'zh' ? '中文' : 'EN'}</span>
+          {!iconOnly && <span>{language === 'zh' ? '中文' : 'EN'}</span>}
         </button>
       </div>
     </div>

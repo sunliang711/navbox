@@ -9,6 +9,7 @@ import {
   Loader2,
   MoreHorizontal,
   Search,
+  Shield,
   X
 } from 'lucide-react';
 import { type MouseEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -307,7 +308,23 @@ function VisitorApp({ onNavigate }: { onNavigate: (path: string) => void }) {
               className={settingsOpen ? 'toolbar-actions open' : 'toolbar-actions'}
               ref={toolbarMenuRef}
             >
-              <PreferenceControls />
+              <PreferenceControls iconOnly />
+              <a
+                className="toolbar-icon-button toolbar-admin-link"
+                href="/admin"
+                title={t('admin')}
+                aria-label={t('admin')}
+                onClick={(event) => {
+                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+                    return;
+                  }
+                  event.preventDefault();
+                  setSettingsOpen(false);
+                  onNavigate('/admin');
+                }}
+              >
+                <Shield size={15} aria-hidden="true" />
+              </a>
               <button
                 className="toolbar-menu-button"
                 type="button"
@@ -336,20 +353,6 @@ function VisitorApp({ onNavigate }: { onNavigate: (path: string) => void }) {
                       <span className="toggle-thumb" />
                     </span>
                   </label>
-                  <a
-                    className="toolbar-menu-item admin-link"
-                    href="/admin"
-                    onClick={(event) => {
-                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
-                        return;
-                      }
-                      event.preventDefault();
-                      setSettingsOpen(false);
-                      onNavigate('/admin');
-                    }}
-                  >
-                    {t('admin')}
-                  </a>
                 </div>
               )}
             </div>
