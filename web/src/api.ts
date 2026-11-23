@@ -6,6 +6,8 @@ import type {
   CronJob,
   CronJobRun,
   ExportFile,
+  IconListQuery,
+  IconListResp,
   IconResp,
   ImportReport,
   OrderItem,
@@ -199,6 +201,24 @@ export async function uploadIcon(file: File): Promise<IconResp> {
 
 export function fetchWebsiteIcon(url: string): Promise<IconResp> {
   return jsonRequest<IconResp>('/api/v1/admin/icons/fetch', 'POST', { url });
+}
+
+export function listAdminIcons(query: IconListQuery = {}): Promise<IconListResp> {
+  const params = new URLSearchParams();
+  if (query.q) {
+    params.set('q', query.q);
+  }
+  if (query.unused) {
+    params.set('unused', 'true');
+  }
+  if (query.limit !== undefined) {
+    params.set('limit', String(query.limit));
+  }
+  if (query.offset !== undefined) {
+    params.set('offset', String(query.offset));
+  }
+  const suffix = params.toString();
+  return request<IconListResp>(`/api/v1/admin/icons${suffix ? `?${suffix}` : ''}`);
 }
 
 export async function exportConfig(req: { site_ids?: string[]; tag_ids?: string[] }): Promise<ExportFile> {

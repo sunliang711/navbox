@@ -16,3 +16,25 @@ type IconResp struct {
 type FetchIconReq struct {
 	URL string `json:"url" binding:"required"`
 }
+
+type IconSiteRef struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+type IconListItem struct {
+	IconResp
+	UsedBy []IconSiteRef `json:"used_by"`
+}
+
+type IconListQuery struct {
+	Q      string
+	Unused bool
+	Limit  int
+	Offset int
+}
+
+type IconListResp struct {
+	Items []IconListItem `json:"items"`
+	Total int            `json:"total"`
+}

@@ -78,6 +78,10 @@ type stubIconService struct {
 	calls   int
 }
 
+func (s *stubIconService) ListIcons(context.Context, dto.IconListQuery) (*dto.IconListResp, error) {
+	return &dto.IconListResp{Items: []dto.IconListItem{}}, nil
+}
+
 func (s *stubIconService) UploadIcon(context.Context, multipart.File) (*dto.IconResp, error) {
 	return nil, nil
 }

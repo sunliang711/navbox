@@ -108,6 +108,27 @@ export type IconResp = {
   created_at: string;
 };
 
+export type IconSiteRef = {
+  id: string;
+  title: string;
+};
+
+export type IconLibraryItem = IconResp & {
+  used_by: IconSiteRef[];
+};
+
+export type IconListResp = {
+  items: IconLibraryItem[];
+  total: number;
+};
+
+export type IconListQuery = {
+  q?: string;
+  unused?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
 export type ImportReport = {
   imported: ImportCount;
   skipped: ImportCount;

@@ -11,6 +11,7 @@ import {
   GripVertical,
   Heart,
   Home,
+  Images,
   KeyRound,
   Loader2,
   LogIn,
@@ -19,6 +20,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  RotateCcw,
   Save,
   ScrollText,
   Search,
@@ -50,6 +52,7 @@ import {
   logoutAdmin,
   restoreAdminPassword,
   setDefaultTag,
+  UnauthorizedError,
   updateSite,
   updateSiteOrder,
   updateTag,
@@ -59,10 +62,11 @@ import {
 import { AuditPanel } from './AuditPanel';
 import { fetchAndUploadBrowserIcon } from './browserIcon';
 import { CronPanel } from './CronPanel';
+import { IconPickerDialog, SiteIconPreview } from './IconPickerDialog';
 import { PreferenceControls, usePreferences } from './preferences';
 import { SiteSortPanel } from './SiteSortPanel';
 import { VersionBadge } from './version';
-import type { IconResp, ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
+import type { IconLibraryItem, IconResp, ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
 
 type AdminTab = 'sites' | 'tags' | 'io' | 'cron' | 'audit' | 'password';
 type ExportMode = 'all' | 'sites' | 'tags';
@@ -127,6 +131,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const [sitePanelOpen, setSitePanelOpen] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
   const [iconFetching, setIconFetching] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState<TagSaveReq>(emptyTagForm);
   const [editingTagId, setEditingTagId] = useState('');
   const [tagPanelOpen, setTagPanelOpen] = useState(false);
@@ -290,6 +295,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     setNotice('');
     setLoginError(t('sessionExpired'));
     setSitePanelOpen(false);
+    setIconPickerOpen(false);
     setTagPanelOpen(false);
     setSelectedSiteIds([]);
     setBatchTagIds([]);
@@ -354,6 +360,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   function openNewSite() {
     setEditingSiteId('');
     setSiteDraft(emptySiteForm);
+    setIconPickerOpen(false);
     setSitePanelOpen(true);
   }
 
@@ -374,6 +381,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       sort_order: site.sort_order,
       tag_ids: site.tags.map((tag) => tag.id)
     });
+    setIconPickerOpen(false);
     setSitePanelOpen(true);
   }
 
@@ -1757,6 +1765,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
           closeDisabled={savingSite}
           onClose={() => {
             if (!savingSite) {
+              setIconPickerOpen(false);
               setSitePanelOpen(false);
             }
           }}
@@ -1768,11 +1777,30 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
             onSubmit={submitSite}
             onIconUpload={handleIconUpload}
             onFetchIcon={handleFetchIcon}
+            onOpenIconPicker={() => setIconPickerOpen(true)}
             iconFetching={iconFetching}
             saving={savingSite}
           />
         </SidePanel>
       )}
+
+      <IconPickerDialog
+        open={sitePanelOpen && iconPickerOpen}
+        currentIconValue={siteDraft.icon_value}
+        siteTitle={siteDraft.title}
+        backgroundColor={siteDraft.background_color}
+        onSelect={(icon: IconLibraryItem) => {
+          setSiteDraft((current) => ({
+            ...current,
+            icon_type: 'image',
+            icon_value: icon.url
+          }));
+          setIconPickerOpen(false);
+          setNotice(t('iconSelected'));
+        }}
+        onClose={() => setIconPickerOpen(false)}
+        onUnauthorized={() => handleAdminError(new UnauthorizedError())}
+      />
 
       {tagPanelOpen && (
         <SidePanel
@@ -2376,6 +2404,7 @@ function SiteForm({
   onSubmit,
   onIconUpload,
   onFetchIcon,
+  onOpenIconPicker,
   iconFetching,
   saving
 }: {
@@ -2385,10 +2414,12 @@ function SiteForm({
   onSubmit: (event: FormEvent) => void;
   onIconUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onFetchIcon: () => void;
+  onOpenIconPicker: () => void;
   iconFetching: boolean;
   saving: boolean;
 }) {
   const { t } = usePreferences();
+  const [iconBroken, setIconBroken] = useState(false);
 
   function patch(next: Partial<SiteSaveReq>) {
     onChange({ ...draft, ...next });
@@ -2472,8 +2503,53 @@ function SiteForm({
           </div>
         </fieldset>
         <details className="form-advanced">
-          <summary><span><Settings size={17} aria-hidden="true" />{t('iconAndAdvanced')}</span></summary>
+          <summary>
+            <span><Settings size={17} aria-hidden="true" />{t('iconAndAdvanced')}</span>
+            <span className="form-advanced-preview" aria-hidden="true">
+              <SiteIconPreview
+                title={draft.title}
+                iconType={draft.icon_type}
+                iconValue={draft.icon_value}
+                backgroundColor={draft.background_color}
+                size="sm"
+              />
+            </span>
+          </summary>
           <div className="form-section">
+            <div className="icon-preview-card">
+              <SiteIconPreview
+                title={draft.title}
+                iconType={draft.icon_type}
+                iconValue={draft.icon_value}
+                backgroundColor={draft.background_color}
+                size="lg"
+                onImageStatusChange={setIconBroken}
+              />
+              <div className="icon-preview-copy">
+                <span className="icon-preview-label">{t('iconPreview')}</span>
+                <strong className="icon-preview-title">{draft.title.trim() || t('newSiteTitle')}</strong>
+                <span className={`icon-preview-meta${iconBroken ? ' is-broken' : ''}`}>
+                  {iconBroken
+                    ? t('iconPreviewBroken')
+                    : draft.icon_type === 'image'
+                      ? t('imageIcon')
+                      : draft.icon_type === 'online'
+                        ? t('onlineIcon')
+                        : t('textIcon')}
+                  {!iconBroken && draft.icon_value.trim() ? ` · ${draft.icon_value.trim()}` : ''}
+                </span>
+              </div>
+              {(draft.icon_type !== 'text' || draft.icon_value.trim() !== '') && (
+                <button
+                  type="button"
+                  className="icon-preview-reset"
+                  onClick={() => patch({ icon_type: 'text', icon_value: '' })}
+                >
+                  <RotateCcw size={14} aria-hidden="true" />
+                  {t('iconResetToText')}
+                </button>
+              )}
+            </div>
             <div className="form-grid form-grid-three">
               <label>
                 <span>{t('sort')}</span>
@@ -2511,6 +2587,10 @@ function SiteForm({
                     onChange={onIconUpload}
                   />
                 </label>
+                <button type="button" onClick={onOpenIconPicker} disabled={iconFetching}>
+                  <Images size={17} aria-hidden="true" />
+                  {t('chooseExistingIcon')}
+                </button>
               </div>
             </div>
           </div>

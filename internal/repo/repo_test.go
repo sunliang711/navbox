@@ -102,6 +102,26 @@ func TestIconRepoCount(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestIconRepoListQueries(t *testing.T) {
+	db, _ := newMockDB(t)
+
+	var icons []model.Icon
+	listStmt := db.Session(&gorm.Session{DryRun: true}).
+		Order("created_at DESC, id DESC").
+		Find(&icons).Statement
+	require.Contains(t, listStmt.SQL.String(), `ORDER BY created_at DESC, id DESC`)
+
+	var refs []IconSiteRefRow
+	refStmt := db.Session(&gorm.Session{DryRun: true}).
+		Model(&model.Site{}).
+		Select("id, title, icon_value").
+		Where("icon_value LIKE ? OR icon_value LIKE ?", "/uploads/%", "uploads/%").
+		Order("sort_order ASC, created_at ASC").
+		Find(&refs).Statement
+	require.Contains(t, refStmt.SQL.String(), `FROM "sites"`)
+	require.Contains(t, refStmt.SQL.String(), `icon_value LIKE $1 OR icon_value LIKE $2`)
+}
+
 func TestApplyAuditFilterParentheses(t *testing.T) {
 	db, _ := newMockDB(t)
 	var logs []model.AuditLog

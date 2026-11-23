@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -22,8 +23,51 @@ func NewIconHandler(cfg config.Config, service service.IconService, auditSvc ser
 }
 
 func (h *IconHandler) RegisterAdminRoutes(rg *gin.RouterGroup) {
+	rg.GET("/icons", h.ListIcons)
 	rg.POST("/icons/upload", h.UploadIcon)
 	rg.POST("/icons/fetch", h.FetchIcon)
+}
+
+func (h *IconHandler) ListIcons(c *gin.Context) {
+	limit := 0
+	if raw := c.Query("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "参数错误")
+			return
+		}
+		limit = parsed
+	}
+	offset := 0
+	if raw := c.Query("offset"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "参数错误")
+			return
+		}
+		offset = parsed
+	}
+	unused := false
+	if raw := c.Query("unused"); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, response.CodeBadRequest, "参数错误")
+			return
+		}
+		unused = parsed
+	}
+
+	result, err := h.service.ListIcons(c.Request.Context(), dto.IconListQuery{
+		Q:      c.Query("q"),
+		Unused: unused,
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	response.OK(c, result)
 }
 
 func (h *IconHandler) UploadIcon(c *gin.Context) {

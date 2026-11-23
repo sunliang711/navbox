@@ -16,6 +16,7 @@ import (
 )
 
 type IconService interface {
+	ListIcons(ctx context.Context, query dto.IconListQuery) (*dto.IconListResp, error)
 	UploadIcon(ctx context.Context, file multipart.File) (*dto.IconResp, error)
 	FetchIcon(ctx context.Context, websiteURL string) (*dto.IconResp, error)
 }
@@ -38,6 +39,92 @@ func NewIconService(cfg config.Config, repo repo.IconRepo, store *storage.IconSt
 		allowedPrivateCIDRs: allowedPrivateCIDRs,
 		skipTLSVerify:       cfg.IconFetch.SkipTLSVerify,
 	}, nil
+}
+
+const (
+	defaultIconListLimit = 60
+	maxIconListLimit     = 200
+)
+
+func (s *iconService) ListIcons(ctx context.Context, query dto.IconListQuery) (*dto.IconListResp, error) {
+	icons, err := s.repo.ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	refs, err := s.repo.ListSiteIconRefs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	refsByFile := make(map[string][]dto.IconSiteRef)
+	for _, ref := range refs {
+		fileName, ok := localIconFileName(ref.IconValue)
+		if !ok {
+			continue
+		}
+		refsByFile[fileName] = append(refsByFile[fileName], dto.IconSiteRef{
+			ID:    ref.SiteID.String(),
+			Title: ref.Title,
+		})
+	}
+
+	q := strings.ToLower(strings.TrimSpace(query.Q))
+	filtered := make([]dto.IconListItem, 0, len(icons))
+	for _, icon := range icons {
+		usedBy := refsByFile[icon.FileName]
+		if usedBy == nil {
+			usedBy = []dto.IconSiteRef{}
+		}
+		if query.Unused && len(usedBy) > 0 {
+			continue
+		}
+		if q != "" && !matchesIconSearch(icon, usedBy, q) {
+			continue
+		}
+		filtered = append(filtered, dto.IconListItem{
+			IconResp: mapIcon(icon),
+			UsedBy:   usedBy,
+		})
+	}
+
+	limit := query.Limit
+	if limit <= 0 {
+		limit = defaultIconListLimit
+	} else if limit > maxIconListLimit {
+		limit = maxIconListLimit
+	}
+	offset := query.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	total := len(filtered)
+	if offset >= total {
+		return &dto.IconListResp{
+			Items: []dto.IconListItem{},
+			Total: total,
+		}, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return &dto.IconListResp{
+		Items: filtered[offset:end],
+		Total: total,
+	}, nil
+}
+
+func matchesIconSearch(icon model.Icon, usedBy []dto.IconSiteRef, q string) bool {
+	if strings.Contains(strings.ToLower(icon.FileName), q) {
+		return true
+	}
+	for _, site := range usedBy {
+		if strings.Contains(strings.ToLower(site.Title), q) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *iconService) UploadIcon(ctx context.Context, file multipart.File) (*dto.IconResp, error) {
