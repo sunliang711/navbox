@@ -113,7 +113,8 @@ export function IconPickerDialog({
   backgroundColor,
   onSelect,
   onClose,
-  onUnauthorized
+  onUnauthorized,
+  reauthVersion = 0
 }: {
   open: boolean;
   currentIconValue: string;
@@ -122,6 +123,7 @@ export function IconPickerDialog({
   onSelect: (icon: IconLibraryItem) => void;
   onClose: () => void;
   onUnauthorized: () => void;
+  reauthVersion?: number;
 }) {
   const { t } = usePreferences();
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -201,7 +203,6 @@ export function IconPickerDialog({
         }
         if (isUnauthorizedError(error)) {
           callbacksRef.current.onUnauthorized();
-          callbacksRef.current.onClose();
           return;
         }
         setLoadError(callbacksRef.current.t('iconLibraryLoadFailed'));
@@ -215,7 +216,7 @@ export function IconPickerDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, searchQuery, unusedOnly]);
+  }, [open, searchQuery, unusedOnly, reauthVersion]);
 
   async function loadMore() {
     if (loadingMore || items.length >= total) {
@@ -238,7 +239,6 @@ export function IconPickerDialog({
     } catch (error) {
       if (isUnauthorizedError(error)) {
         onUnauthorized();
-        onClose();
         return;
       }
       setLoadError(t('iconLibraryLoadFailed'));

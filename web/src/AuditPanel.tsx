@@ -1,6 +1,6 @@
 import { Code2, Download, Eye, RotateCcw, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { getAuditLogsExportUrl, listAuditLogs } from './api';
+import { exportAuditLogs, listAuditLogs } from './api';
 import {
   AUDIT_ACTION_GROUPS,
   formatAuditAction,
@@ -31,10 +31,17 @@ const emptyFilters: FilterState = {
   toDate: ''
 };
 
-export function AuditPanel({ onUnauthorized }: { onUnauthorized: (err: unknown) => boolean }) {
+export function AuditPanel({
+  onUnauthorized,
+  reauthVersion = 0
+}: {
+  onUnauthorized: (err: unknown) => boolean;
+  reauthVersion?: number;
+}) {
   const { t, language } = usePreferences();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<'csv' | 'json' | null>(null);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const limit = 50;
@@ -96,6 +103,36 @@ export function AuditPanel({ onUnauthorized }: { onUnauthorized: (err: unknown) 
     void load(0, filters);
   }, [filters.actorType, filters.status, filters.action]);
 
+  useEffect(() => {
+    if (reauthVersion > 0 && logs.length === 0 && !loading) {
+      void load(offset, filters);
+    }
+  }, [reauthVersion]);
+
+  const handleExport = async (format: 'csv' | 'json') => {
+    if (exporting) {
+      return;
+    }
+    setExporting(format);
+    setPageErr('');
+    try {
+      const file = await exportAuditLogs(format, appliedQuery);
+      const url = URL.createObjectURL(file.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      if (!onUnauthorized(error)) {
+        const msg = error instanceof Error ? error.message : String(error);
+        setPageErr(t('auditLoadFailed', { error: msg }));
+      }
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const handleSearch = () => {
     setOffset(0);
     void load(0, filters);
@@ -116,22 +153,29 @@ export function AuditPanel({ onUnauthorized }: { onUnauthorized: (err: unknown) 
     filters.q || filters.action || filters.actorType || filters.status || filters.fromDate || filters.toDate
   );
 
-  const csvUrl = getAuditLogsExportUrl('csv', appliedQuery);
-  const jsonUrl = getAuditLogsExportUrl('json', appliedQuery);
-
   return (
     <section className="admin-section">
       <div className="module-intro">
         <p>{t('auditSubtitle', { total })}</p>
         <div className="audit-export-actions">
-          <a className="secondary-btn" href={csvUrl}>
+          <button
+            type="button"
+            className="secondary-btn"
+            disabled={exporting !== null}
+            onClick={() => void handleExport('csv')}
+          >
             <Download size={15} aria-hidden="true" />
             {t('auditExportCsv')}
-          </a>
-          <a className="secondary-btn" href={jsonUrl}>
+          </button>
+          <button
+            type="button"
+            className="secondary-btn"
+            disabled={exporting !== null}
+            onClick={() => void handleExport('json')}
+          >
             <Download size={15} aria-hidden="true" />
             {t('auditExportJson')}
-          </a>
+          </button>
         </div>
       </div>
 

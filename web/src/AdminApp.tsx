@@ -113,6 +113,11 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
+  const [reauthOpen, setReauthOpen] = useState(false);
+  const [reauthPassword, setReauthPassword] = useState('');
+  const [reauthError, setReauthError] = useState('');
+  const [reauthenticating, setReauthenticating] = useState(false);
+  const [reauthVersion, setReauthVersion] = useState(0);
   const [tab, setTab] = useState<AdminTab>('sites');
   const [adminSearch, setAdminSearch] = useState('');
   const [siteTagFilterId, setSiteTagFilterId] = useState('all');
@@ -141,6 +146,9 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const savingSiteRef = useRef(false);
   const savingTagRef = useRef(false);
   const loggingInRef = useRef(false);
+  const reauthOpenRef = useRef(false);
+  const reauthenticatingRef = useRef(false);
+  const lastSessionCheckRef = useRef(0);
   const changingPasswordRef = useRef(false);
   const restoringPasswordRef = useRef(false);
   const [siteOrder, setSiteOrder] = useState<Record<string, number>>({});
@@ -213,6 +221,42 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     }
     refreshData();
   }, [authenticated]);
+
+  useEffect(() => {
+    if (!authenticated || restoreMode) {
+      return;
+    }
+    lastSessionCheckRef.current = Date.now();
+
+    async function verifyActiveSession() {
+      if (reauthOpenRef.current) {
+        return;
+      }
+      const now = Date.now();
+      if (now - lastSessionCheckRef.current < 15_000) {
+        return;
+      }
+      lastSessionCheckRef.current = now;
+      try {
+        await getAdminSession();
+      } catch (error) {
+        handleAdminError(error);
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void verifyActiveSession();
+      }
+    }
+
+    window.addEventListener('focus', verifyActiveSession);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', verifyActiveSession);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [authenticated, restoreMode]);
 
   useEffect(() => {
     if (!notice) {
@@ -291,21 +335,12 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     if (!isUnauthorizedError(error)) {
       return false;
     }
-    setAuthenticated(false);
-    setNotice('');
-    setLoginError(t('sessionExpired'));
-    setSitePanelOpen(false);
-    setIconPickerOpen(false);
-    setTagPanelOpen(false);
-    setSelectedSiteIds([]);
-    setBatchTagIds([]);
-    setSiteSelectionMode(false);
-    setMobileBatchTagsOpen(false);
-    setMobileAdminMenuOpen(false);
-    setMobileSiteActionsOpen(false);
-    setMobileTagActionsOpen(false);
-    setExportSiteIds([]);
-    setExportTagIds([]);
+    if (!reauthOpenRef.current) {
+      reauthOpenRef.current = true;
+      setReauthOpen(true);
+      setReauthPassword('');
+      setReauthError('');
+    }
     return true;
   }
 
@@ -336,6 +371,9 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     setLoginError('');
     try {
       await loginAdmin(password);
+      reauthOpenRef.current = false;
+      lastSessionCheckRef.current = Date.now();
+      setReauthOpen(false);
       setAuthenticated(true);
       setPassword('');
     } catch {
@@ -346,14 +384,47 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     }
   }
 
+  async function submitReauth(event: FormEvent) {
+    event.preventDefault();
+    if (reauthenticatingRef.current) {
+      return;
+    }
+    reauthenticatingRef.current = true;
+    setReauthenticating(true);
+    setReauthError('');
+    try {
+      await loginAdmin(reauthPassword);
+      reauthOpenRef.current = false;
+      lastSessionCheckRef.current = Date.now();
+      setReauthOpen(false);
+      setReauthPassword('');
+      setReauthError('');
+      setReauthVersion((version) => version + 1);
+      setNotice(t('reloginSuccess'));
+      if (sites.length === 0 && tags.length === 0) {
+        void refreshData();
+      }
+    } catch {
+      setReauthError(t('loginFailed'));
+    } finally {
+      reauthenticatingRef.current = false;
+      setReauthenticating(false);
+    }
+  }
+
   async function handleLogout() {
     try {
       await logoutAdmin();
     } catch (error) {
-      if (!handleAdminError(error)) {
+      if (!isUnauthorizedError(error)) {
         throw error;
       }
     }
+    reauthOpenRef.current = false;
+    setReauthOpen(false);
+    setReauthPassword('');
+    setReauthError('');
+    setLoginError('');
     setAuthenticated(false);
   }
 
@@ -851,7 +922,17 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       setPasswordForm({ current: '', next: '', confirm: '' });
       setNotice(t('passwordChanged'));
     } catch (error) {
-      if (!handleAdminError(error)) {
+      if (isUnauthorizedError(error)) {
+        // 修改密码接口在当前密码错误和会话过期时都会返回 401，先检查会话避免误弹过期登录框。
+        try {
+          await getAdminSession();
+          setNotice(t('loginFailed'));
+        } catch (sessionError) {
+          if (!handleAdminError(sessionError)) {
+            setNotice(t('loginFailed'));
+          }
+        }
+      } else {
         setNotice(error instanceof Error && error.message ? error.message : t('loginFailed'));
       }
     } finally {
@@ -1697,11 +1778,11 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       )}
 
       {!loading && tab === 'cron' && (
-        <CronPanel onNotice={setNotice} onUnauthorized={handleAdminError} />
+        <CronPanel onNotice={setNotice} onUnauthorized={handleAdminError} reauthVersion={reauthVersion} />
       )}
 
       {!loading && tab === 'audit' && (
-        <AuditPanel onUnauthorized={handleAdminError} />
+        <AuditPanel onUnauthorized={handleAdminError} reauthVersion={reauthVersion} />
       )}
 
       {!loading && tab === 'password' && (
@@ -1800,6 +1881,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
         }}
         onClose={() => setIconPickerOpen(false)}
         onUnauthorized={() => handleAdminError(new UnauthorizedError())}
+        reauthVersion={reauthVersion}
       />
 
       {tagPanelOpen && (
@@ -1829,7 +1911,121 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
           }}
         />
       )}
+
+      {reauthOpen && (
+        <SessionExpiredLoginDialog
+          password={reauthPassword}
+          error={reauthError}
+          loggingIn={reauthenticating}
+          onPasswordChange={(value) => {
+            setReauthPassword(value);
+            if (reauthError) {
+              setReauthError('');
+            }
+          }}
+          onSubmit={submitReauth}
+          onGoHome={() => {
+            reauthOpenRef.current = false;
+            setReauthOpen(false);
+            if (onNavigate) {
+              onNavigate('/');
+            } else {
+              window.location.href = '/';
+            }
+          }}
+        />
+      )}
     </main>
+  );
+}
+
+function SessionExpiredLoginDialog({
+  password,
+  error,
+  loggingIn,
+  onPasswordChange,
+  onSubmit,
+  onGoHome
+}: {
+  password: string;
+  error: string;
+  loggingIn: boolean;
+  onPasswordChange: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+  onGoHome: () => void;
+}) {
+  const { t } = usePreferences();
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
+  useBodyScrollLock(true);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    passwordInputRef.current?.focus();
+    return () => previousFocus?.focus();
+  }, []);
+
+  return (
+    <div className="reauth-backdrop" role="presentation">
+      <form
+        className="reauth-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reauth-dialog-title"
+        onSubmit={onSubmit}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+          if (event.key === 'Tab') {
+            const controls = Array.from(
+              event.currentTarget.querySelectorAll<HTMLElement>('button, input, [href], [tabindex]')
+            ).filter((element) => !element.matches(':disabled') && element.tabIndex >= 0 && element.getClientRects().length > 0);
+            const first = controls[0];
+            const last = controls[controls.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+              event.preventDefault();
+              last?.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+              event.preventDefault();
+              first?.focus();
+            }
+          }
+        }}
+      >
+        <div className="reauth-header">
+          <span className="reauth-mark" aria-hidden="true">
+            <Shield size={22} aria-hidden="true" />
+          </span>
+          <div className="reauth-heading">
+            <h2 id="reauth-dialog-title">{t('sessionExpiredTitle')}</h2>
+            <p>{t('sessionExpiredModalNote')}</p>
+          </div>
+        </div>
+        <label>
+          <span>{t('password')}</span>
+          <input
+            ref={passwordInputRef}
+            type="password"
+            value={password}
+            onChange={(event) => onPasswordChange(event.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        <div className="reauth-actions">
+          <button className="confirm-cancel" type="button" onClick={onGoHome} disabled={loggingIn}>
+            {t('visitorHome')}
+          </button>
+          <button className="primary-button" type="submit" disabled={loggingIn}>
+            {loggingIn ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <LogIn size={17} aria-hidden="true" />}
+            {loggingIn ? t('checkingSession') : t('reloginSubmit')}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 

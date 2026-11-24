@@ -143,10 +143,12 @@ function parseStructuredParams(job: CronJob): StructuredParams {
 
 export function CronPanel({
   onNotice,
-  onUnauthorized
+  onUnauthorized,
+  reauthVersion = 0
 }: {
   onNotice: (msg: string) => void;
   onUnauthorized: (err: unknown) => boolean;
+  reauthVersion?: number;
 }) {
   const { t, language } = usePreferences();
   const [loading, setLoading] = useState(true);
@@ -205,6 +207,18 @@ export function CronPanel({
   useEffect(() => {
     void loadJobs();
   }, []);
+
+  useEffect(() => {
+    if (reauthVersion <= 0) {
+      return;
+    }
+    if (jobs.length === 0 && !loading) {
+      void loadJobs();
+    }
+    if (runsJob && runs.length === 0 && !runsLoading) {
+      void loadRuns(runsJob);
+    }
+  }, [reauthVersion]);
 
   const planPresets = useMemo(() => getPlanPresets(editing?.job_key), [editing?.job_key]);
 

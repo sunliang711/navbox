@@ -323,10 +323,28 @@ export function getAuditLogsExportUrl(format: 'csv' | 'json', query: AuditQuery)
   return `/api/v1/admin/audit-logs/export?${params.toString()}`;
 }
 
-function parseDownloadFileName(header: string | null): string {
+export async function exportAuditLogs(format: 'csv' | 'json', query: AuditQuery): Promise<ExportFile> {
+  const response = await fetch(getAuditLogsExportUrl(format, query), {
+    credentials: 'include',
+    cache: 'no-store'
+  });
+  if (response.status === 401) {
+    throw new UnauthorizedError();
+  }
+  if (!response.ok) {
+    throw new Error('request failed');
+  }
+  const blob = await response.blob();
+  return {
+    blob,
+    fileName: parseDownloadFileName(response.headers.get('Content-Disposition'), `navbox-audit-logs.${format}`)
+  };
+}
+
+function parseDownloadFileName(header: string | null, fallback = 'navbox-export.zip'): string {
   if (!header) {
-    return 'navbox-export.zip';
+    return fallback;
   }
   const match = header.match(/filename="([^"]+)"/);
-  return match?.[1] ?? 'navbox-export.zip';
+  return match?.[1] ?? fallback;
 }

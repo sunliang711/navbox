@@ -376,6 +376,7 @@ button:disabled {
 .admin-form textarea,
 .admin-form select,
 .login-panel input,
+.reauth-dialog input,
 .admin-search-field input,
 .admin-filter-select select,
 .order-input {
@@ -393,6 +394,7 @@ button:disabled {
 .admin-form textarea:focus-visible,
 .admin-form select:focus-visible,
 .login-panel input:focus-visible,
+.reauth-dialog input:focus-visible,
 .order-input:focus-visible {
   border-color: var(--accent);
   box-shadow: var(--ring);
@@ -2674,6 +2676,109 @@ input[type='color'] {
 .confirm-danger-button:hover {
   background: var(--danger-fill-hover);
   box-shadow: 0 4px 14px rgba(225, 29, 72, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* ============================================================
+   Session expired re-login dialog
+   ============================================================ */
+
+.reauth-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay);
+  backdrop-filter: blur(4px);
+  padding: 20px;
+  animation: nb-fade-in 0.16s ease;
+}
+
+.reauth-dialog {
+  display: grid;
+  gap: 14px;
+  width: min(410px, 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  padding: 24px;
+  box-shadow: var(--shadow-4);
+  animation: nb-pop 0.2s ease;
+}
+
+.reauth-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.reauth-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--brand-gradient);
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
+}
+
+.reauth-heading {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.reauth-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.reauth-heading p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.reauth-dialog label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.reauth-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 4px;
+}
+
+.reauth-actions .confirm-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: var(--radius-sm);
+  padding: 0 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.reauth-actions .primary-button {
+  min-height: 38px;
+  padding: 0 16px;
 }
 
 /* ============================================================
