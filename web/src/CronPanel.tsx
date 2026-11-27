@@ -13,7 +13,7 @@ import {
   Save,
   X
 } from 'lucide-react';
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
   listCronJobs,
   listCronRuns,
@@ -32,35 +32,16 @@ type PresetOption = {
   value: string;
 };
 
-const BASE_PRESETS: PresetOption[] = [
-  { labelKey: 'cronPresetWeeklyMon04', value: '0 4 * * 1' },
-  { labelKey: 'cronPresetDaily04', value: '0 4 * * *' },
-  { labelKey: 'cronPresetMonthly01', value: '0 4 1 * *' },
+const SCHEDULE_PRESETS: PresetOption[] = [
+  { labelKey: 'cronPresetEveryMinute', value: '* * * * *' },
+  { labelKey: 'cronPresetEvery5Minutes', value: '*/5 * * * *' },
+  { labelKey: 'cronPresetEvery10Minutes', value: '*/10 * * * *' },
   { labelKey: 'cronPresetHourly', value: '0 * * * *' },
+  { labelKey: 'cronPresetDaily00', value: '0 0 * * *' },
+  { labelKey: 'cronPresetWeeklyMon00', value: '0 0 * * 1' },
+  { labelKey: 'cronPresetMonthly01', value: '0 0 1 * *' },
   { labelKey: 'cronPresetCustom', value: 'custom' }
 ];
-
-function getPlanPresets(jobKey?: string): PresetOption[] {
-  let extra: PresetOption[] = [];
-  switch (jobKey) {
-    case 'safekeep_backup':
-      extra = [
-        { labelKey: 'cronPresetWeeklyMon04', value: '0 4 * * 1' },
-        { labelKey: 'cronPresetDaily04', value: '0 4 * * *' },
-        { labelKey: 'cronPresetDay1And15', value: '30 4 1,15 * *' },
-        { labelKey: 'cronPresetMonthly01', value: '0 4 1 * *' }
-      ];
-      break;
-    case 'cleanup_audit_logs':
-      extra = [{ labelKey: 'cronPresetDaily02', value: '0 2 * * *' }];
-      break;
-    case 'cleanup_cron_runs':
-      extra = [{ labelKey: 'cronPresetDaily03', value: '0 3 * * *' }];
-      break;
-  }
-  const seen = new Set(extra.map((item) => item.value));
-  return [...extra, ...BASE_PRESETS.filter((item) => !seen.has(item.value))];
-}
 
 const JOB_I18N: Record<string, { name: TranslationKey; desc: TranslationKey }> = {
   safekeep_backup: { name: 'cronJobSafeKeepName', desc: 'cronJobSafeKeepDesc' },
@@ -220,11 +201,8 @@ export function CronPanel({
     }
   }, [reauthVersion]);
 
-  const planPresets = useMemo(() => getPlanPresets(editing?.job_key), [editing?.job_key]);
-
   const openEdit = (job: CronJob, overrideEnabled?: boolean) => {
-    const presets = getPlanPresets(job.job_key);
-    const matched = presets.find((item) => item.value === job.cron_expr)?.value ?? 'custom';
+    const matched = SCHEDULE_PRESETS.find((item) => item.value === job.cron_expr)?.value ?? 'custom';
     const parsedParams = parseStructuredParams(job);
     const nextEnabled = overrideEnabled ?? job.enabled;
     const nextTimeout = job.timeout_sec > 0 ? job.timeout_sec : 300;
@@ -703,7 +681,7 @@ export function CronPanel({
               <label>
                 <span>{t('cronFieldSchedule')}</span>
                 <select value={preset} onChange={(e) => handlePresetChange(e.target.value)}>
-                  {planPresets.map((opt) => (
+                  {SCHEDULE_PRESETS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.value === 'custom'
                         ? t(opt.labelKey)
