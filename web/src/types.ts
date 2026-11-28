@@ -55,6 +55,33 @@ export type RecentSite = Site & {
 
 export type SessionResp = {
   authenticated: boolean;
+  user?: AdminAccount;
+};
+
+export type AdminAccount = {
+  id: string;
+  username: string;
+  role: 'admin' | 'viewer';
+  disabled: boolean;
+  last_login_at: string | null;
+  created_at: string;
+};
+
+export type ActiveSession = {
+  id: string;
+  client_ip: string;
+  user_agent: string;
+  created_at: string;
+  last_seen_at: string;
+  expires_at: string;
+  current: boolean;
+};
+
+export type AccountUpdate = {
+  username?: string;
+  role?: AdminAccount['role'];
+  disabled?: boolean;
+  new_password?: string;
 };
 
 export type RestoreStatus = {

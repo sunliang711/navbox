@@ -29,6 +29,11 @@ func (h *AuthHandler) RegisterRoutes(rg *gin.RouterGroup, authMiddleware gin.Han
 	admin.POST("/logout", authMiddleware, h.Logout)
 	admin.GET("/session", authMiddleware, h.GetSession)
 	admin.POST("/password", authMiddleware, h.ChangePassword)
+	admin.GET("/sessions", authMiddleware, h.ListSessions)
+	admin.DELETE("/sessions/:id", authMiddleware, h.RevokeSession)
+	admin.GET("/accounts", authMiddleware, h.ListAccounts)
+	admin.POST("/accounts", authMiddleware, h.CreateAccount)
+	admin.PUT("/accounts/:id", authMiddleware, h.UpdateAccount)
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -40,7 +45,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.Login(c.Request.Context(), req.Password)
+	result, err := h.service.Login(c.Request.Context(), req.Username, req.Password, c.ClientIP(), c.Request.UserAgent())
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) {
 			recordAdminAudit(c, h.auditSvc, "auth.login", "session", "", service.AuditStatusFailure, map[string]any{
@@ -57,8 +62,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	middleware.SetSessionCookie(c, h.cfg, result.Token)
+	middleware.SetCurrentAccount(c, result.User)
 	recordAdminAudit(c, h.auditSvc, "auth.login", "session", "", service.AuditStatusSuccess, nil)
-	response.OK(c, dto.SessionResp{Authenticated: true})
+	response.OK(c, dto.SessionResp{Authenticated: true, User: &result.User})
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
@@ -77,7 +83,8 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 func (h *AuthHandler) GetSession(c *gin.Context) {
 	middleware.SetNoCacheHeaders(c)
-	response.OK(c, dto.SessionResp{Authenticated: true})
+	user, _ := middleware.CurrentAccount(c)
+	response.OK(c, dto.SessionResp{Authenticated: true, User: &user})
 }
 
 func (h *AuthHandler) ChangePassword(c *gin.Context) {

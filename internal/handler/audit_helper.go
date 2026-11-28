@@ -19,10 +19,14 @@ func recordAdminAudit(
 	if auditSvc == nil || c == nil {
 		return
 	}
+	actorID, actorName := service.AuditActorAdmin, service.AuditActorAdmin
+	if account, ok := middleware.CurrentAccount(c); ok && account.ID != "" {
+		actorID, actorName = account.ID, account.Username
+	}
 	auditSvc.Record(c.Request.Context(), service.AuditEvent{
 		ActorType:    service.AuditActorAdmin,
-		ActorID:      service.AuditActorAdmin,
-		ActorName:    service.AuditActorAdmin,
+		ActorID:      actorID,
+		ActorName:    actorName,
 		Action:       action,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,

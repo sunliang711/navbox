@@ -35,7 +35,6 @@ import { type ChangeEvent, type DragEvent, type FormEvent, type ReactNode, useEf
 import {
   batchDeleteSites,
   batchUpdateSiteTags,
-  changeAdminPassword,
   createSite,
   createTag,
   deleteSite,
@@ -59,6 +58,7 @@ import {
   updateTagOrder,
   uploadIcon
 } from './api';
+import { AccountsPanel } from './AccountsPanel';
 import { AuditPanel } from './AuditPanel';
 import { fetchAndUploadBrowserIcon } from './browserIcon';
 import { CronPanel } from './CronPanel';
@@ -66,7 +66,7 @@ import { IconPickerDialog, SiteIconPreview } from './IconPickerDialog';
 import { PreferenceControls, usePreferences } from './preferences';
 import { SiteSortPanel } from './SiteSortPanel';
 import { VersionBadge } from './version';
-import type { IconLibraryItem, IconResp, ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
+import type { AdminAccount, IconLibraryItem, IconResp, ImportReport, OrderItem, Site, SiteSaveReq, Tag, TagSaveReq } from './types';
 
 type AdminTab = 'sites' | 'tags' | 'io' | 'cron' | 'audit' | 'password';
 type ExportMode = 'all' | 'sites' | 'tags';
@@ -110,10 +110,14 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const [sessionCheckAttempt, setSessionCheckAttempt] = useState(0);
   const [authenticated, setAuthenticated] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
+  const [username, setUsername] = useState('admin');
+  const [user, setUser] = useState<AdminAccount | null>(null);
+  const isAdmin = user?.role === 'admin';
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
   const [reauthOpen, setReauthOpen] = useState(false);
+  const [reauthUsername, setReauthUsername] = useState('admin');
   const [reauthPassword, setReauthPassword] = useState('');
   const [reauthError, setReauthError] = useState('');
   const [reauthenticating, setReauthenticating] = useState(false);
@@ -141,7 +145,6 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const [editingTagId, setEditingTagId] = useState('');
   const [tagPanelOpen, setTagPanelOpen] = useState(false);
   const [savingTag, setSavingTag] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
   const [restoringPassword, setRestoringPassword] = useState(false);
   const savingSiteRef = useRef(false);
   const savingTagRef = useRef(false);
@@ -149,7 +152,6 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const reauthOpenRef = useRef(false);
   const reauthenticatingRef = useRef(false);
   const lastSessionCheckRef = useRef(0);
-  const changingPasswordRef = useRef(false);
   const restoringPasswordRef = useRef(false);
   const [siteOrder, setSiteOrder] = useState<Record<string, number>>({});
   const [tagOrder, setTagOrder] = useState<Record<string, number>>({});
@@ -168,7 +170,6 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
   const [mobileTagActionsOpen, setMobileTagActionsOpen] = useState(false);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
-  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const [restoreForm, setRestoreForm] = useState({ token: '', next: '', confirm: '' });
   const [restoreNotice, setRestoreNotice] = useState('');
 
@@ -192,8 +193,10 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       }
 
       try {
-        await getAdminSession();
+        const session = await getAdminSession();
         if (!cancelled) {
+          setUser(session.user || null);
+          setUsername(session.user?.username || 'admin');
           setAuthenticated(true);
         }
       } catch (error) {
@@ -238,7 +241,11 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       }
       lastSessionCheckRef.current = now;
       try {
-        await getAdminSession();
+        const session = await getAdminSession();
+        if (session.user) {
+          setUser(session.user);
+          setUsername(session.user.username);
+        }
       } catch (error) {
         handleAdminError(error);
       }
@@ -257,6 +264,18 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [authenticated, restoreMode]);
+
+  useEffect(() => {
+    if (user?.role !== 'viewer') return;
+    setSitePanelOpen(false);
+    setTagPanelOpen(false);
+    setIconPickerOpen(false);
+    setConfirmRequest(null);
+    setSiteDraft(emptySiteForm);
+    setSelectedSiteIds([]);
+    setImportReport(null);
+    setTab((current) => current === 'io' ? 'sites' : current);
+  }, [user?.role]);
 
   useEffect(() => {
     if (!notice) {
@@ -338,6 +357,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     if (!reauthOpenRef.current) {
       reauthOpenRef.current = true;
       setReauthOpen(true);
+      setReauthUsername(user?.username || username);
       setReauthPassword('');
       setReauthError('');
     }
@@ -370,7 +390,9 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     setLoggingIn(true);
     setLoginError('');
     try {
-      await loginAdmin(password);
+      const session = await loginAdmin(password, username);
+      setUser(session.user || null);
+      setUsername(session.user?.username || username);
       reauthOpenRef.current = false;
       lastSessionCheckRef.current = Date.now();
       setReauthOpen(false);
@@ -393,7 +415,12 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     setReauthenticating(true);
     setReauthError('');
     try {
-      await loginAdmin(reauthPassword);
+      const session = await loginAdmin(reauthPassword, reauthUsername);
+      const switchedAccount = Boolean(user && session.user && user.id !== session.user.id);
+      if (switchedAccount) clearAdminSession();
+      setUser(session.user || null);
+      setUsername(session.user?.username || username);
+      setAuthenticated(true);
       reauthOpenRef.current = false;
       lastSessionCheckRef.current = Date.now();
       setReauthOpen(false);
@@ -401,7 +428,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       setReauthError('');
       setReauthVersion((version) => version + 1);
       setNotice(t('reloginSuccess'));
-      if (sites.length === 0 && tags.length === 0) {
+      if (switchedAccount || (sites.length === 0 && tags.length === 0)) {
         void refreshData();
       }
     } catch {
@@ -420,12 +447,30 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
         throw error;
       }
     }
+    clearAdminSession();
+  }
+
+  function clearAdminSession() {
     reauthOpenRef.current = false;
     setReauthOpen(false);
     setReauthPassword('');
     setReauthError('');
     setLoginError('');
+    setPassword('');
     setAuthenticated(false);
+    setUser(null);
+    setSites([]);
+    setTags([]);
+    setSelectedSiteIds([]);
+    setSiteDraft(emptySiteForm);
+    setTagDraft(emptyTagForm);
+    setSitePanelOpen(false);
+    setTagPanelOpen(false);
+    setIconPickerOpen(false);
+    setConfirmRequest(null);
+    setImportReport(null);
+    setNotice('');
+    setTab('sites');
   }
 
   function openNewSite() {
@@ -906,41 +951,6 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
     }
   }
 
-  async function submitPassword(event: FormEvent) {
-    event.preventDefault();
-    if (changingPasswordRef.current) {
-      return;
-    }
-    if (passwordForm.next !== passwordForm.confirm) {
-      setNotice(t('passwordMismatch'));
-      return;
-    }
-    changingPasswordRef.current = true;
-    setChangingPassword(true);
-    try {
-      await changeAdminPassword(passwordForm.current, passwordForm.next);
-      setPasswordForm({ current: '', next: '', confirm: '' });
-      setNotice(t('passwordChanged'));
-    } catch (error) {
-      if (isUnauthorizedError(error)) {
-        // 修改密码接口在当前密码错误和会话过期时都会返回 401，先检查会话避免误弹过期登录框。
-        try {
-          await getAdminSession();
-          setNotice(t('loginFailed'));
-        } catch (sessionError) {
-          if (!handleAdminError(sessionError)) {
-            setNotice(t('loginFailed'));
-          }
-        }
-      } else {
-        setNotice(error instanceof Error && error.message ? error.message : t('loginFailed'));
-      }
-    } finally {
-      changingPasswordRef.current = false;
-      setChangingPassword(false);
-    }
-  }
-
   async function submitRestorePassword(event: FormEvent) {
     event.preventDefault();
     if (restoringPasswordRef.current) {
@@ -1140,11 +1150,17 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
           </div>
           <h1>{t('adminLogin')}</h1>
           <label>
+            <span>{t('username')}</span>
+            <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required maxLength={64} />
+            <small className="field-hint">{t('defaultUsernameHint')}</small>
+          </label>
+          <label>
             <span>{t('password')}</span>
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
               autoFocus
               required
             />
@@ -1170,10 +1186,10 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
         <nav className="admin-tabs" aria-label={t('adminModules')}>
           <AdminTabButton active={tab === 'sites'} onClick={() => setTab('sites')} icon={Settings} label={t('sitesTab')} mobileLabel={t('sitesTab')} />
           <AdminTabButton active={tab === 'tags'} onClick={() => setTab('tags')} icon={Tags} label={t('tagsTab')} mobileLabel={t('tagsTab')} />
-          <AdminTabButton active={tab === 'io'} onClick={() => setTab('io')} icon={FileUp} label={t('importExportTab')} mobileLabel={t('importShortTab')} />
+          {isAdmin && <AdminTabButton active={tab === 'io'} onClick={() => setTab('io')} icon={FileUp} label={t('importExportTab')} mobileLabel={t('importShortTab')} />}
           <AdminTabButton active={tab === 'cron'} onClick={() => setTab('cron')} icon={Clock} label={t('cronTab')} mobileLabel={t('cronShortTab')} />
           <AdminTabButton active={tab === 'audit'} onClick={() => setTab('audit')} icon={ScrollText} label={t('auditTab')} mobileLabel={t('auditShortTab')} />
-          <AdminTabButton active={tab === 'password'} onClick={() => setTab('password')} icon={KeyRound} label={t('passwordTab')} mobileLabel={t('passwordTab')} />
+          <AdminTabButton active={tab === 'password'} onClick={() => setTab('password')} icon={KeyRound} label={t('passwordTab')} mobileLabel={t('accountsShortTab')} />
         </nav>
         <div className="admin-sidebar-status">
           <span>{t('currentStatus')}</span>
@@ -1185,7 +1201,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
         <div className="admin-title-block">
           <span className="admin-eyebrow">{t('adminEyebrow')}</span>
           <h1>{currentAdminTitle}</h1>
-          <p>{t('adminSubtitle')}</p>
+          <p>{tab === 'password' ? t('accountsSubtitle') : t('adminSubtitle')}</p>
         </div>
         <button
           className="mobile-admin-menu-trigger toolbar-icon-button"
@@ -1262,7 +1278,33 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       {notice && <div className="toast">{notice}</div>}
       {loading && <AdminState text={t('refreshing')} />}
 
-      {!loading && tab === 'sites' && (
+      {!loading && !isAdmin && (tab === 'sites' || tab === 'tags') && (
+        <section className="admin-section">
+          <p className="field-hint">{t('accountReadOnlyHint')}</p>
+          <div className="account-records">
+            {(tab === 'sites' ? sites.length : tags.length) === 0 && <p>{t(tab === 'sites' ? 'noSites' : 'noTags')}</p>}
+            {tab === 'sites' ? sites.map((site) => (
+              <article className="account-record" key={site.id}>
+                <div className="account-record-info">
+                  <div className="account-record-title"><strong>{site.title}</strong><span className={site.is_enabled ? 'status-pill active' : 'status-pill'}>{site.is_enabled ? t('enabledStatus') : t('disabledStatus')}</span></div>
+                  <p>{site.description}</p>
+                  <p>{site.default_url}</p>
+                  <p>{site.tags.map((tag) => tag.name).join(' · ')}</p>
+                </div>
+              </article>
+            )) : tags.map((tag) => (
+              <article className="account-record" key={tag.id}>
+                <div className="account-record-info">
+                  <div className="account-record-title"><strong>{tag.name}</strong><span className={tag.is_enabled ? 'status-pill active' : 'status-pill'}>{tag.is_enabled ? t('enabledStatus') : t('disabledStatus')}</span></div>
+                  <p>{t('siteCount')}: {tag.site_count}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!loading && tab === 'sites' && isAdmin && (
         <section className="admin-section">
           {!siteSortMode && (
             <div className="admin-actions">
@@ -1499,7 +1541,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
         </section>
       )}
 
-      {!loading && tab === 'tags' && (
+      {!loading && tab === 'tags' && isAdmin && (
         <section className="admin-section">
           <div className="admin-actions">
             <button className="primary-button" type="button" onClick={openNewTag}>
@@ -1651,7 +1693,7 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
         </section>
       )}
 
-      {!loading && tab === 'io' && (
+      {!loading && tab === 'io' && isAdmin && (
         <section className="admin-section admin-grid-two">
           <div className="admin-tool-panel">
             <h2>{t('export')}</h2>
@@ -1778,66 +1820,22 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
       )}
 
       {!loading && tab === 'cron' && (
-        <CronPanel onNotice={setNotice} onUnauthorized={handleAdminError} reauthVersion={reauthVersion} />
+        <CronPanel onNotice={setNotice} onUnauthorized={handleAdminError} reauthVersion={reauthVersion} readOnly={!isAdmin} />
       )}
 
       {!loading && tab === 'audit' && (
         <AuditPanel onUnauthorized={handleAdminError} reauthVersion={reauthVersion} />
       )}
 
-      {!loading && tab === 'password' && (
-        <section className="admin-section narrow-section">
-          <form className="admin-form" onSubmit={submitPassword}>
-            <label>
-              <span>{t('currentPassword')}</span>
-              <input
-                type="password"
-                value={passwordForm.current}
-                onChange={(event) => setPasswordForm({ ...passwordForm, current: event.target.value })}
-                required
-              />
-            </label>
-            <label>
-              <span>{t('newPassword')}</span>
-              <input
-                type="password"
-                value={passwordForm.next}
-                onChange={(event) => setPasswordForm({ ...passwordForm, next: event.target.value })}
-                minLength={8}
-                required
-              />
-            </label>
-            <label>
-              <span>{t('confirmNewPassword')}</span>
-              <input
-                type="password"
-                value={passwordForm.confirm}
-                onChange={(event) => setPasswordForm({ ...passwordForm, confirm: event.target.value })}
-                minLength={8}
-                required
-              />
-            </label>
-            <button className="primary-button" type="submit" disabled={changingPassword}>
-              {changingPassword ? <Loader2 className="spin" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
-              {changingPassword ? t('saving') : t('changePassword')}
-            </button>
-          </form>
-          <aside className="security-tips">
-            <h2>{t('securityTips')}</h2>
-            <div>
-              <span className="danger-dot" />
-              <strong>{t('passwordTipSeparate')}</strong>
-            </div>
-            <div>
-              <span className="accent-dot" />
-              <strong>{t('passwordTipRelogin')}</strong>
-            </div>
-            <div>
-              <span className="success-dot" />
-              <strong>{t('passwordTipStrength')}</strong>
-            </div>
-          </aside>
-        </section>
+      {!loading && tab === 'password' && user && (
+        <AccountsPanel
+          user={user}
+          onUserChange={(account) => { setUser(account); setUsername(account.username); }}
+          onNotice={setNotice}
+          onUnauthorized={handleAdminError}
+          onSignedOut={clearAdminSession}
+          reauthVersion={reauthVersion}
+        />
       )}
 
       {sitePanelOpen && (
@@ -1914,6 +1912,8 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
 
       {reauthOpen && (
         <SessionExpiredLoginDialog
+          username={reauthUsername}
+          onUsernameChange={setReauthUsername}
           password={reauthPassword}
           error={reauthError}
           loggingIn={reauthenticating}
@@ -1940,6 +1940,8 @@ export function AdminApp({ onNavigate }: { onNavigate?: (path: string) => void }
 }
 
 function SessionExpiredLoginDialog({
+  username,
+  onUsernameChange,
   password,
   error,
   loggingIn,
@@ -1947,6 +1949,8 @@ function SessionExpiredLoginDialog({
   onSubmit,
   onGoHome
 }: {
+  username: string;
+  onUsernameChange: (value: string) => void;
   password: string;
   error: string;
   loggingIn: boolean;
@@ -2003,6 +2007,10 @@ function SessionExpiredLoginDialog({
             <p>{t('sessionExpiredModalNote')}</p>
           </div>
         </div>
+        <label>
+          <span>{t('username')}</span>
+          <input value={username} onChange={(event) => onUsernameChange(event.target.value)} autoComplete="username" maxLength={64} required />
+        </label>
         <label>
           <span>{t('password')}</span>
           <input

@@ -125,11 +125,13 @@ function parseStructuredParams(job: CronJob): StructuredParams {
 export function CronPanel({
   onNotice,
   onUnauthorized,
-  reauthVersion = 0
+  reauthVersion = 0,
+  readOnly = false
 }: {
   onNotice: (msg: string) => void;
   onUnauthorized: (err: unknown) => boolean;
   reauthVersion?: number;
+  readOnly?: boolean;
 }) {
   const { t, language } = usePreferences();
   const [loading, setLoading] = useState(true);
@@ -154,6 +156,12 @@ export function CronPanel({
   const [testResultMsg, setTestResultMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [remoteUpstreams, setRemoteUpstreams] = useState<SafeKeepUpstream[]>([]);
   const previewSeq = useRef(0);
+
+  useEffect(() => {
+    if (!readOnly) return;
+    setEditing(null);
+    setParams(null);
+  }, [readOnly]);
 
   // Runs panel state
   const [runsJob, setRunsJob] = useState<CronJob | null>(null);
@@ -582,7 +590,7 @@ export function CronPanel({
                       <td>
                         <ToggleSwitch
                           checked={job.enabled}
-                          disabled={togglingId === job.id}
+                          disabled={readOnly || togglingId === job.id}
                           label={displayName}
                           onChange={(next) => void handleToggle(job, next)}
                         />
@@ -591,14 +599,14 @@ export function CronPanel({
                         <div className="row-actions cron-row-actions">
                           <button
                             type="button"
-                            disabled={Boolean(runningId)}
+                            disabled={readOnly || Boolean(runningId)}
                             onClick={() => void handleRunNow(job)}
                             title={t('cronRunNow')}
                           >
                             {isRunning ? <Loader2 size={15} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
                             <span>{isRunning ? t('cronRunning') : t('cronRunNow')}</span>
                           </button>
-                          <button type="button" onClick={() => openEdit(job)} title={t('cronEdit')}>
+                          <button type="button" disabled={readOnly} onClick={() => openEdit(job)} title={t('cronEdit')}>
                             <Pencil size={15} aria-hidden="true" />
                             <span>{t('cronEdit')}</span>
                           </button>
@@ -630,7 +638,7 @@ export function CronPanel({
                     </div>
                     <ToggleSwitch
                       checked={job.enabled}
-                      disabled={togglingId === job.id}
+                      disabled={readOnly || togglingId === job.id}
                       label={displayName}
                       onChange={(next) => void handleToggle(job, next)}
                     />
@@ -642,11 +650,11 @@ export function CronPanel({
                   </div>
                   {job.last_summary && <p className="mobile-card-description">{job.last_summary}</p>}
                   <div className="cron-mobile-actions">
-                    <button type="button" disabled={Boolean(runningId)} onClick={() => void handleRunNow(job)}>
+                    <button type="button" disabled={readOnly || Boolean(runningId)} onClick={() => void handleRunNow(job)}>
                       {isRunning ? <Loader2 size={15} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
                       {isRunning ? t('cronRunning') : t('cronRunNow')}
                     </button>
-                    <button type="button" onClick={() => openEdit(job)}>
+                    <button type="button" disabled={readOnly} onClick={() => openEdit(job)}>
                       <Pencil size={15} aria-hidden="true" />
                       {t('cronEdit')}
                     </button>

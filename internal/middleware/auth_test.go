@@ -15,6 +15,7 @@ import (
 )
 
 type fakeSessionAuthService struct {
+	service.AuthService
 	result service.SessionValidationResult
 	err    error
 	token  string
@@ -24,7 +25,7 @@ func (s *fakeSessionAuthService) EnsureInitialized(ctx context.Context) error {
 	return nil
 }
 
-func (s *fakeSessionAuthService) Login(ctx context.Context, password string) (service.LoginResult, error) {
+func (s *fakeSessionAuthService) Login(ctx context.Context, username string, password string, clientIP string, userAgent string) (service.LoginResult, error) {
 	return service.LoginResult{}, nil
 }
 

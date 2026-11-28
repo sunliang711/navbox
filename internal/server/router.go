@@ -53,7 +53,7 @@ func NewRouter(
 	restoreHandler.RegisterStatusRoute(api)
 	authHandler.RegisterRoutes(api, middleware.AdminSession(cfg, authService))
 
-	admin := api.Group("/admin", middleware.AdminSession(cfg, authService))
+	admin := api.Group("/admin", middleware.AdminSession(cfg, authService), middleware.AdminPermissions())
 	iconHandler.RegisterAdminRoutes(admin)
 	importExportHandler.RegisterAdminRoutes(admin)
 	siteHandler.RegisterAdminRoutes(admin)

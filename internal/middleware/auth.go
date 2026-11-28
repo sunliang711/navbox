@@ -3,14 +3,43 @@ package middleware
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"navbox/internal/config"
+	"navbox/internal/dto"
+	"navbox/internal/model"
 	"navbox/internal/response"
 	"navbox/internal/service"
 )
+
+const accountContextKey = "authenticated_account"
+
+func SetCurrentAccount(c *gin.Context, account dto.AccountResp) {
+	c.Set(accountContextKey, account)
+}
+
+func CurrentAccount(c *gin.Context) (dto.AccountResp, bool) {
+	value, exists := c.Get(accountContextKey)
+	account, ok := value.(dto.AccountResp)
+	return account, exists && ok
+}
+
+// AdminPermissions 允许只读账号查询普通管理数据，写操作和凭据查看仅限管理员。
+func AdminPermissions() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		account, ok := CurrentAccount(c)
+		if !ok || (account.Role != model.RoleAdmin &&
+			(c.Request.Method != http.MethodGet || strings.HasSuffix(c.FullPath(), "/secrets"))) {
+			response.Error(c, http.StatusForbidden, response.CodeForbidden, "没有操作权限")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
 
 func AdminSession(cfg config.Config, authService service.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -36,6 +65,7 @@ func AdminSession(cfg config.Config, authService service.AuthService) gin.Handle
 		if result.Renewed {
 			SetSessionCookie(c, cfg, token)
 		}
+		SetCurrentAccount(c, result.User)
 		c.Next()
 	}
 }

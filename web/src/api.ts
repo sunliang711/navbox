@@ -1,4 +1,7 @@
 import type {
+  AccountUpdate,
+  ActiveSession,
+  AdminAccount,
   ApiResponse,
   AuditListResp,
   AuditQuery,
@@ -116,8 +119,28 @@ export function getRestoreStatus(): Promise<RestoreStatus> {
   return request<RestoreStatus>('/api/v1/restore/status');
 }
 
-export function loginAdmin(password: string): Promise<SessionResp> {
-  return jsonRequest<SessionResp>('/api/v1/admin/login', 'POST', { password });
+export function loginAdmin(password: string, username = 'admin'): Promise<SessionResp> {
+  return jsonRequest<SessionResp>('/api/v1/admin/login', 'POST', { username, password });
+}
+
+export function listActiveSessions(): Promise<{ sessions: ActiveSession[] }> {
+  return request('/api/v1/admin/sessions');
+}
+
+export function revokeSession(id: string): Promise<{ current: boolean }> {
+  return jsonRequest(`/api/v1/admin/sessions/${encodeURIComponent(id)}`, 'DELETE');
+}
+
+export function listAdminAccounts(): Promise<{ accounts: AdminAccount[] }> {
+  return request('/api/v1/admin/accounts');
+}
+
+export function createAdminAccount(req: { username: string; password: string; role: AdminAccount['role']; current_password: string }): Promise<AdminAccount> {
+  return jsonRequest('/api/v1/admin/accounts', 'POST', req);
+}
+
+export function updateAdminAccount(id: string, req: AccountUpdate & { current_password: string }): Promise<AdminAccount> {
+  return jsonRequest(`/api/v1/admin/accounts/${encodeURIComponent(id)}`, 'PUT', req);
 }
 
 export function logoutAdmin(): Promise<SessionResp> {

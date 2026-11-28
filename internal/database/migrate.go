@@ -19,6 +19,7 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 		&model.Tag{},
 		&model.SiteTag{},
 		&model.AdminSetting{},
+		&model.AdminAccount{},
 		&model.AdminSession{},
 		&model.Icon{},
 		&model.SystemSetting{},

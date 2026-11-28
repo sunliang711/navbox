@@ -9,13 +9,16 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"golang.org/x/crypto/bcrypt"
 
 	"navbox/internal/config"
+	"navbox/internal/dto"
 	"navbox/internal/model"
 	"navbox/internal/repo"
 )
@@ -24,6 +27,7 @@ const (
 	adminSettingID                 = 1
 	sessionTokenBytes              = 32
 	sessionRenewalThresholdDivisor = 2
+	sessionActivityInterval        = time.Minute
 	minAdminPasswordBytes          = 8
 	passwordAlphabet               = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*"
 )
@@ -36,22 +40,29 @@ var (
 
 type AuthService interface {
 	EnsureInitialized(ctx context.Context) error
-	Login(ctx context.Context, password string) (LoginResult, error)
+	Login(ctx context.Context, username string, password string, clientIP string, userAgent string) (LoginResult, error)
 	ValidateSession(ctx context.Context, token string) error
 	ValidateSessionWithRenewal(ctx context.Context, token string) (SessionValidationResult, error)
 	Logout(ctx context.Context, token string) error
 	ChangePassword(ctx context.Context, token string, currentPassword string, newPassword string) error
 	ResetPassword(ctx context.Context, newPassword string) error
+	ListSessions(ctx context.Context, token string) ([]dto.ActiveSessionResp, error)
+	RevokeSession(ctx context.Context, token string, id uuid.UUID) (bool, error)
+	ListAccounts(ctx context.Context, token string) ([]dto.AccountResp, error)
+	CreateAccount(ctx context.Context, token string, req dto.CreateAccountReq) (dto.AccountResp, error)
+	UpdateAccount(ctx context.Context, token string, id uuid.UUID, req dto.UpdateAccountReq) (dto.AccountResp, error)
 }
 
 type LoginResult struct {
 	Token     string
 	ExpiresAt time.Time
+	User      dto.AccountResp
 }
 
 type SessionValidationResult struct {
 	ExpiresAt time.Time
 	Renewed   bool
+	User      dto.AccountResp
 }
 
 type AuthServiceParams struct {
@@ -86,44 +97,62 @@ func NewAuthService(params AuthServiceParams) AuthService {
 }
 
 func (s *authService) EnsureInitialized(ctx context.Context) error {
-	setting, err := s.repo.GetAdminSetting(ctx)
-	if err != nil {
-		return err
+	var initialPassword string
+	err := s.repo.WithAuthTx(ctx, func(tx repo.AuthRepo) error {
+		accounts, err := tx.ListAccounts(ctx)
+		if err != nil {
+			return err
+		}
+		if len(accounts) > 0 {
+			return nil
+		}
+		setting, err := tx.GetAdminSetting(ctx)
+		if err != nil {
+			return err
+		}
+		if setting == nil || !setting.Initialized || setting.PasswordHash == "" {
+			initialPassword, err = generatePassword(s.cfg.Auth.InitialPasswordLength)
+			if err != nil {
+				return err
+			}
+			passwordHash, err := hashPassword(initialPassword)
+			if err != nil {
+				return err
+			}
+			setting = &model.AdminSetting{ID: adminSettingID, PasswordHash: passwordHash, Initialized: true}
+			if err := tx.SaveAdminSetting(ctx, setting); err != nil {
+				return err
+			}
+		}
+		// 默认账号沿用原密码，并接管已有会话，避免升级时强制退出。
+		account := &model.AdminAccount{
+			Base: model.Base{ID: uuid.New()}, Username: "admin", PasswordHash: setting.PasswordHash,
+			Role: model.RoleAdmin, IsPrimary: true,
+		}
+		if err := tx.CreateAccount(ctx, account); err != nil {
+			return err
+		}
+		return tx.BindLegacySessions(ctx, account.ID)
+	})
+	if err == nil && initialPassword != "" {
+		s.logger.Warn().Str("password", initialPassword).Msg("Admin initial password generated")
 	}
-	if setting != nil && setting.Initialized && setting.PasswordHash != "" {
-		return nil
-	}
-
-	password, err := generatePassword(s.cfg.Auth.InitialPasswordLength)
-	if err != nil {
-		return err
-	}
-	passwordHash, err := hashPassword(password)
-	if err != nil {
-		return err
-	}
-
-	if err := s.repo.SaveAdminSetting(ctx, &model.AdminSetting{
-		ID:           adminSettingID,
-		PasswordHash: passwordHash,
-		Initialized:  true,
-	}); err != nil {
-		return err
-	}
-
-	s.logger.Warn().Str("password", password).Msg("Admin initial password generated")
-	return nil
+	return err
 }
 
-func (s *authService) Login(ctx context.Context, password string) (LoginResult, error) {
-	setting, err := s.repo.GetAdminSetting(ctx)
+func (s *authService) Login(ctx context.Context, username string, password string, clientIP string, userAgent string) (LoginResult, error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		username = "admin"
+	}
+	account, err := s.repo.GetAccountByUsername(ctx, username)
 	if err != nil {
 		return LoginResult{}, err
 	}
-	if setting == nil || !setting.Initialized || setting.PasswordHash == "" {
+	if account == nil || account.Disabled {
 		return LoginResult{}, ErrInvalidCredentials
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(setting.PasswordHash), []byte(password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(account.PasswordHash), []byte(password)); err != nil {
 		return LoginResult{}, ErrInvalidCredentials
 	}
 
@@ -138,17 +167,34 @@ func (s *authService) Login(ctx context.Context, password string) (LoginResult, 
 	now := time.Now().UTC()
 	expiresAt := now.Add(sessionTTL)
 
-	if err := s.repo.DeleteExpiredSessions(ctx, now); err != nil {
-		return LoginResult{}, err
-	}
-	if err := s.repo.CreateSession(ctx, &model.AdminSession{
-		TokenHash: hashToken(token),
-		ExpiresAt: expiresAt,
-	}); err != nil {
+	err = s.repo.WithAuthTx(ctx, func(tx repo.AuthRepo) error {
+		current, err := tx.GetAccount(ctx, account.ID)
+		if err != nil {
+			return err
+		}
+		// 验密后再次核对，防止并发停用、改密或改名期间创建旧凭据会话。
+		if current == nil || current.Disabled || current.PasswordHash != account.PasswordHash || current.Username != username {
+			return ErrInvalidCredentials
+		}
+		if err := tx.DeleteExpiredSessions(ctx, now); err != nil {
+			return err
+		}
+		if err := tx.CreateSession(ctx, &model.AdminSession{
+			Base: model.Base{ID: uuid.New()}, AccountID: &current.ID,
+			TokenHash: hashToken(token), ExpiresAt: expiresAt,
+			ClientIP: clientIP, UserAgent: truncateUserAgent(userAgent), LastSeenAt: &now,
+		}); err != nil {
+			return err
+		}
+		current.LastLoginAt = &now
+		account = current
+		return tx.UpdateAccount(ctx, current)
+	})
+	if err != nil {
 		return LoginResult{}, err
 	}
 
-	return LoginResult{Token: token, ExpiresAt: expiresAt}, nil
+	return LoginResult{Token: token, ExpiresAt: expiresAt, User: accountDTO(account)}, nil
 }
 
 func (s *authService) ValidateSession(ctx context.Context, token string) error {
@@ -170,12 +216,28 @@ func (s *authService) validateSession(ctx context.Context, token string, renew b
 	if err != nil {
 		return SessionValidationResult{}, err
 	}
-	if session == nil {
+	if session == nil || session.AccountID == nil {
 		return SessionValidationResult{}, ErrUnauthenticated
 	}
-	result := SessionValidationResult{ExpiresAt: session.ExpiresAt}
+	account, err := s.repo.GetAccount(ctx, *session.AccountID)
+	if err != nil {
+		return SessionValidationResult{}, err
+	}
+	if account == nil || account.Disabled || (account.Role != model.RoleAdmin && account.Role != model.RoleViewer) {
+		return SessionValidationResult{}, ErrUnauthenticated
+	}
+	result := SessionValidationResult{ExpiresAt: session.ExpiresAt, User: accountDTO(account)}
 	if !renew {
 		return result, nil
+	}
+	if session.LastSeenAt == nil || now.Sub(*session.LastSeenAt) >= sessionActivityInterval {
+		updated, err := s.repo.TouchSession(ctx, tokenHash, now)
+		if err != nil {
+			return SessionValidationResult{}, err
+		}
+		if !updated {
+			return SessionValidationResult{}, ErrUnauthenticated
+		}
 	}
 
 	sessionTTL, err := s.sessionTTL()
@@ -195,7 +257,9 @@ func (s *authService) validateSession(ctx context.Context, token string, renew b
 		return SessionValidationResult{}, ErrUnauthenticated
 	}
 
-	return SessionValidationResult{ExpiresAt: expiresAt, Renewed: true}, nil
+	result.ExpiresAt = expiresAt
+	result.Renewed = true
+	return result, nil
 }
 
 func (s *authService) Logout(ctx context.Context, token string) error {
@@ -206,40 +270,31 @@ func (s *authService) Logout(ctx context.Context, token string) error {
 }
 
 func (s *authService) ChangePassword(ctx context.Context, token string, currentPassword string, newPassword string) error {
-	if len(newPassword) < minAdminPasswordBytes {
+	if !validAccountPassword(newPassword) {
 		return ErrWeakPassword
 	}
-	if err := s.ValidateSession(ctx, token); err != nil {
-		return err
-	}
-
-	setting, err := s.repo.GetAdminSetting(ctx)
-	if err != nil {
-		return err
-	}
-	if setting == nil || !setting.Initialized || setting.PasswordHash == "" {
-		return ErrInvalidCredentials
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(setting.PasswordHash), []byte(currentPassword)); err != nil {
-		return ErrInvalidCredentials
-	}
-
 	passwordHash, err := hashPassword(newPassword)
 	if err != nil {
 		return err
 	}
-	tokenHash := hashToken(token)
-	if err := s.repo.UpdateAdminPasswordHash(ctx, passwordHash); err != nil {
-		return err
-	}
-	if err := s.repo.DeleteSessionsExcept(ctx, tokenHash); err != nil {
-		return err
-	}
-	return nil
+	return s.repo.WithAuthTx(ctx, func(tx repo.AuthRepo) error {
+		account, _, err := s.withRepo(tx).principal(ctx, token)
+		if err != nil {
+			return err
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(account.PasswordHash), []byte(currentPassword)); err != nil {
+			return ErrInvalidCredentials
+		}
+		account.PasswordHash = passwordHash
+		if err := tx.UpdateAccount(ctx, account); err != nil {
+			return err
+		}
+		return tx.DeleteAccountSessions(ctx, account.ID, hashToken(token))
+	})
 }
 
 func (s *authService) ResetPassword(ctx context.Context, newPassword string) error {
-	if len(newPassword) < minAdminPasswordBytes {
+	if !validAccountPassword(newPassword) {
 		return ErrWeakPassword
 	}
 
@@ -247,14 +302,24 @@ func (s *authService) ResetPassword(ctx context.Context, newPassword string) err
 	if err != nil {
 		return err
 	}
-	if err := s.repo.ResetAdminPassword(ctx, &model.AdminSetting{
-		ID:           adminSettingID,
-		PasswordHash: passwordHash,
-		Initialized:  true,
-	}); err != nil {
-		return err
-	}
-	return nil
+	return s.repo.WithAuthTx(ctx, func(tx repo.AuthRepo) error {
+		accounts, err := tx.ListAccounts(ctx)
+		if err != nil {
+			return err
+		}
+		for _, account := range accounts {
+			if !account.IsPrimary {
+				continue
+			}
+			// 恢复入口始终找迁移时的主账号，改名后仍可恢复管理权限。
+			account.PasswordHash, account.Role, account.Disabled = passwordHash, model.RoleAdmin, false
+			if err := tx.UpdateAccount(ctx, &account); err != nil {
+				return err
+			}
+			return tx.DeleteAllSessions(ctx)
+		}
+		return ErrNotFound
+	})
 }
 
 func (s *authService) sessionTTL() (time.Duration, error) {

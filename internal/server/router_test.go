@@ -22,6 +22,7 @@ import (
 )
 
 type stubRouterAuthService struct {
+	service.AuthService
 	token     string
 	expiresAt time.Time
 	ttl       time.Duration
@@ -29,7 +30,7 @@ type stubRouterAuthService struct {
 
 func (s *stubRouterAuthService) EnsureInitialized(context.Context) error { return nil }
 
-func (s *stubRouterAuthService) Login(_ context.Context, password string) (service.LoginResult, error) {
+func (s *stubRouterAuthService) Login(_ context.Context, username string, password string, clientIP string, userAgent string) (service.LoginResult, error) {
 	if password != "secret-password" {
 		return service.LoginResult{}, service.ErrInvalidCredentials
 	}
@@ -52,12 +53,12 @@ func (s *stubRouterAuthService) ValidateSessionWithRenewal(_ context.Context, to
 	}
 	if s.expiresAt.Sub(now) < s.ttl/2 {
 		s.expiresAt = now.Add(s.ttl)
-		return service.SessionValidationResult{ExpiresAt: s.expiresAt, Renewed: true}, nil
+		return service.SessionValidationResult{ExpiresAt: s.expiresAt, Renewed: true, User: dto.AccountResp{Role: "admin"}}, nil
 	}
-	return service.SessionValidationResult{ExpiresAt: s.expiresAt}, nil
+	return service.SessionValidationResult{ExpiresAt: s.expiresAt, User: dto.AccountResp{Role: "admin"}}, nil
 }
 
-func (s *stubRouterAuthService) Logout(context.Context, string) error              { return nil }
+func (s *stubRouterAuthService) Logout(context.Context, string) error { return nil }
 func (s *stubRouterAuthService) ChangePassword(context.Context, string, string, string) error {
 	return nil
 }
@@ -77,7 +78,7 @@ func (s *stubRouterSiteService) CreateSite(context.Context, dto.SiteSaveReq) (*d
 func (s *stubRouterSiteService) UpdateSite(context.Context, string, dto.SiteSaveReq) (*dto.SiteResp, error) {
 	return nil, nil
 }
-func (s *stubRouterSiteService) DeleteSite(context.Context, string) error             { return nil }
+func (s *stubRouterSiteService) DeleteSite(context.Context, string) error { return nil }
 func (s *stubRouterSiteService) BatchDeleteSites(context.Context, dto.BatchDeleteSitesReq) error {
 	return nil
 }

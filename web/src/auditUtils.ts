@@ -64,6 +64,9 @@ export const AUDIT_ACTION_GROUPS: AuditActionGroup[] = [
     options: [
       { value: 'auth.login', labelKey: 'auditActionAuthLogin' },
       { value: 'auth.logout', labelKey: 'auditActionAuthLogout' },
+      { value: 'auth.session_revoke', labelKey: 'auditActionSessionRevoke' },
+      { value: 'admin.create', labelKey: 'auditActionAccountCreate' },
+      { value: 'admin.update', labelKey: 'auditActionAccountUpdate' },
       { value: 'auth.change_password', labelKey: 'auditActionAuthChangePassword' },
       { value: 'auth.restore_password', labelKey: 'auditActionAuthRestorePassword' }
     ]
@@ -77,6 +80,7 @@ const ACTION_KEY_MAP: Record<string, TranslationKey> = Object.fromEntries(
 const RESOURCE_KEY_MAP: Record<string, TranslationKey> = {
   session: 'auditResourceSession',
   admin_setting: 'auditResourceAdminSetting',
+  admin_account: 'auditResourceAccount',
   site: 'auditResourceSite',
   tag: 'auditResourceTag',
   icon: 'auditResourceIcon',
@@ -439,6 +443,14 @@ export function formatAuditResource(
         summary: parts.join(' · ')
       };
     }
+    case 'admin.create':
+    case 'admin.update':
+      return {
+        typeLabel,
+        target: asStr(detail.username) || (item.resource_id ? `#${shortId(item.resource_id)}` : ''),
+        summary: [asStr(detail.role), typeof detail.disabled === 'boolean' ? (detail.disabled ? t('disabledStatus') : t('enabledStatus')) : '', detail.password_reset ? t('resetPassword') : ''].filter(Boolean).join(' · ')
+      };
+    case 'auth.session_revoke':
     case 'auth.login':
     case 'auth.logout':
     case 'auth.change_password':

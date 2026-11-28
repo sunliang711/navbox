@@ -1,0 +1,166 @@
+.accounts-panel,
+.account-records {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.account-panel-heading,
+.account-record,
+.account-record-title,
+.accounts-panel h2,
+.account-record-actions,
+.account-dialog-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-panel-heading,
+.account-record {
+  justify-content: space-between;
+}
+
+.account-panel-heading {
+  flex-wrap: wrap;
+}
+
+.account-panel-heading strong {
+  margin-right: 10px;
+}
+
+.accounts-panel button:not(.primary-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.accounts-panel button:not(.primary-button):hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.account-panel-heading p,
+.account-record p {
+  margin: 6px 0 0;
+  color: var(--text-2);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.account-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.account-overview .admin-form {
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.account-record {
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.account-record-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-record-title,
+.account-record-actions {
+  flex-wrap: wrap;
+}
+
+.account-record-actions {
+  justify-content: flex-end;
+  max-width: 52%;
+}
+
+.account-user-agent {
+  max-height: 3.5em;
+  overflow: auto;
+}
+
+.account-overview .account-records {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.account-record > button {
+  flex-shrink: 0;
+}
+
+.account-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.account-dialog::backdrop {
+  background: rgba(8, 12, 24, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.account-dialog .admin-form {
+  border: none;
+}
+
+.account-dialog h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.account-dialog-actions {
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+@media (max-width: 1000px) {
+  .account-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .accounts-panel .admin-tool-panel {
+    padding: 16px;
+  }
+
+  .account-record {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .account-record-actions {
+    justify-content: flex-start;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .account-record-actions button {
+    min-height: 36px;
+  }
+}
